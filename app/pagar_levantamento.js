@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Camera } from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Modal,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,23 +15,18 @@ import {
 
 export default function ConfirmarLevantamento() {
   const router = useRouter();
-  const [hasPermission, setHasPermission] = useState(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
   const [dadosTransacao, setDadosTransacao] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [etapa, setEtapa] = useState("servidor"); // etapas: servidor → cliente → final
+  const [senhaServidor, setSenhaServidor] = useState("");
+  const [senhaCliente, setSenhaCliente] = useState("");
   const [status, setStatus] = useState(null);
 
-  // Solicitar permissão da câmara
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === "granted");
-    })();
-  }, []);
-
-  // Ao ler o QR Code
-  const handleScan = ({ data }) => {
+  // Função chamada ao ler o QR
+  const handleBarcodeScanned = ({ data }) => {
     setScanning(false);
     processarCodigo(data);
   };
@@ -52,23 +46,30 @@ export default function ConfirmarLevantamento() {
     };
 
     setDadosTransacao(mockData);
+    setEtapa("servidor");
     setModalVisible(true);
   };
 
-  const confirmarLevantamento = () => {
+  // Simula a confirmação completa
+  const finalizarLevantamento = () => {
+    if (senhaServidor === "" || senhaCliente === "")
+      return Alert.alert("Erro", "As senhas devem ser preenchidas.");
+
     setStatus("success");
     setTimeout(() => {
-      Alert.alert("Sucesso", "Levantamento confirmado com sucesso!");
+      Alert.alert("Sucesso", "Levantamento concluído com sucesso!");
       setModalVisible(false);
       setStatus(null);
       setCodigoManual("");
+      setSenhaServidor("");
+      setSenhaCliente("");
     }, 1500);
   };
 
   const recusarLevantamento = () => {
     setStatus("error");
     setTimeout(() => {
-      Alert.alert("Recusado", "O levantamento foi recusado.");
+      Alert.alert("Recusado", "O levantamento foi cancelado.");
       setModalVisible(false);
       setStatus(null);
     }, 1500);
@@ -77,17 +78,22 @@ export default function ConfirmarLevantamento() {
   const formatCurrency = (v) =>
     new Intl.NumberFormat("pt-PT").format(Number(v) || 0) + " KZ";
 
-  if (hasPermission === false) {
+  if (!permission) {
+    return (
+      <View style={styles.center}>
+        <Text style={{ color: "#fff" }}>A carregar permissões...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
     return (
       <View style={styles.center}>
         <Text style={{ color: "#fff", marginBottom: 20 }}>
-          Permissão da câmara negada.
+          A câmara precisa de permissão para funcionar.
         </Text>
         <TouchableOpacity
-          onPress={async () => {
-            const { status } = await Camera.requestCameraPermissionsAsync();
-            setHasPermission(status === "granted");
-          }}
+          onPress={requestPermission}
           style={styles.permissionButton}
         >
           <Ionicons name="camera-outline" color="#fff" size={20} />
@@ -98,148 +104,174 @@ export default function ConfirmarLevantamento() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Cabeçalho */}
-        <View style={styles.fixedHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={22} color="#8F80FF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Confirmar Levantamento</Text>
-          <View style={{ width: 26 }} />
-        </View>
-
-        {/* Scanner */}
-        {scanning ? (
-          <View style={styles.scannerContainer}>
-            <Camera
-              style={{ flex: 1 }}
-              type={Camera.Constants.Type.back}
-              onBarCodeScanned={handleScan}
-              ratio="16:9"
-            />
-            <TouchableOpacity
-              style={styles.closeScan}
-              onPress={() => setScanning(false)}
-            >
-              <Ionicons name="close" color="#fff" size={22} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.body}>
-            <LinearGradient
-              colors={["#8F80FF", "#4C44C1", "#1F1C2C"]}
-              style={styles.scanCard}
-            >
-              <Ionicons name="qr-code-outline" size={50} color="#fff" />
-              <Text style={styles.scanTitle}>Ler QR Code do Cliente</Text>
-              <Text style={styles.scanSubtitle}>
-                Aponte a câmara para o QR do cliente para confirmar o levantamento.
-              </Text>
-
-              <TouchableOpacity
-                onPress={() => setScanning(true)}
-                style={styles.scanButton}
-              >
-                <Ionicons name="camera-outline" color="#fff" size={18} />
-                <Text style={styles.scanButtonText}>Iniciar Leitura</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-
-            {/* Inserção manual */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="key-outline" size={20} color="#8F80FF" />
-              <TextInput
-                placeholder="Ou insira o código KZPay"
-                placeholderTextColor="#aaa"
-                style={styles.input}
-                value={codigoManual}
-                onChangeText={setCodigoManual}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => processarCodigo(codigoManual)}
-            >
-              <LinearGradient colors={["#8F80FF", "#4C44C1"]} style={styles.buttonGradient}>
-                <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
-                <Text style={styles.buttonText}>Validar Código</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Modal de confirmação */}
-        <Modal visible={modalVisible} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              {status === "success" && (
-                <Ionicons name="checkmark-circle" size={60} color="#00D26A" />
-              )}
-              {status === "error" && (
-                <Ionicons name="close-circle" size={60} color="#FF5C63" />
-              )}
-
-              {!status && dadosTransacao && (
-                <>
-                  <Text style={styles.modalTitle}>Confirmar Levantamento</Text>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Cliente:</Text>
-                    <Text style={styles.detailValue}>{dadosTransacao.cliente}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>NBT:</Text>
-                    <Text style={styles.detailValue}>{dadosTransacao.nbt}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Valor:</Text>
-                    <Text style={styles.detailValue}>
-                      {formatCurrency(dadosTransacao.valor)}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Código:</Text>
-                    <Text style={styles.detailValue}>{dadosTransacao.codigo}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Hora:</Text>
-                    <Text style={styles.detailValue}>{dadosTransacao.hora}</Text>
-                  </View>
-                </>
-              )}
-
-              {!status && (
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: "#00C46B" }]}
-                    onPress={confirmarLevantamento}
-                  >
-                    <Ionicons name="checkmark" color="#fff" size={18} />
-                    <Text style={styles.modalBtnText}>Confirmar</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: "#FF5C63" }]}
-                    onPress={recusarLevantamento}
-                  >
-                    <Ionicons name="close" color="#fff" size={18} />
-                    <Text style={styles.modalBtnText}>Recusar</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </View>
-        </Modal>
+    <View style={styles.safeArea}>
+      {/* Cabeçalho */}
+      <View style={styles.fixedHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={22} color="#8F80FF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Confirmar Levantamento</Text>
+        <View style={{ width: 26 }} />
       </View>
-    </SafeAreaView>
+
+      {/* Scanner */}
+      {scanning ? (
+        <View style={styles.scannerContainer}>
+          <CameraView
+            onBarcodeScanned={handleBarcodeScanned}
+            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+            style={{ flex: 1 }}
+          />
+          <TouchableOpacity
+            style={styles.closeScan}
+            onPress={() => setScanning(false)}
+          >
+            <Ionicons name="close" color="#fff" size={22} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.body}>
+          <LinearGradient
+            colors={["#8F80FF", "#4C44C1", "#1F1C2C"]}
+            style={styles.scanCard}
+          >
+            <Ionicons name="qr-code-outline" size={50} color="#fff" />
+            <Text style={styles.scanTitle}>Ler QR Code do Cliente</Text>
+            <Text style={styles.scanSubtitle}>
+              Aponte a câmara para o QR do cliente para confirmar o levantamento.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setScanning(true)}
+              style={styles.scanButton}
+            >
+              <Ionicons name="camera-outline" color="#fff" size={18} />
+              <Text style={styles.scanButtonText}>Iniciar Leitura</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+
+          {/* Inserção manual */}
+          <View style={styles.inputContainer}>
+            <Ionicons name="key-outline" size={20} color="#8F80FF" />
+            <TextInput
+              placeholder="Ou insira o código KZPay"
+              placeholderTextColor="#aaa"
+              style={styles.input}
+              value={codigoManual}
+              onChangeText={setCodigoManual}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => processarCodigo(codigoManual)}
+          >
+            <LinearGradient colors={["#8F80FF", "#4C44C1"]} style={styles.buttonGradient}>
+              <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+              <Text style={styles.buttonText}>Validar Código</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Modal de confirmação */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            {status ? (
+              <View style={styles.centerContent}>
+                {status === "success" && (
+                  <Ionicons name="checkmark-circle" size={100} color="#00D26A" />
+                )}
+                {status === "error" && (
+                  <Ionicons name="close-circle" size={100} color="#FF5C63" />
+                )}
+              </View>
+            ) : (
+              <>
+                {dadosTransacao && (
+                  <>
+                    <Text style={styles.modalTitle}>Confirmar Levantamento</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Cliente:</Text>
+                      <Text style={styles.detailValue}>{dadosTransacao.cliente}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>NBT:</Text>
+                      <Text style={styles.detailValue}>{dadosTransacao.nbt}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Valor:</Text>
+                      <Text style={styles.detailValue}>
+                        {formatCurrency(dadosTransacao.valor)}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {/* Etapas de senha */}
+                {etapa === "servidor" && (
+                  <View style={styles.senhaBox}>
+                    <Text style={styles.etapaTitle}>Servidor: digite sua senha</Text>
+                    <TextInput
+                      secureTextEntry
+                      placeholder="Senha do servidor"
+                      placeholderTextColor="#888"
+                      style={styles.inputSenha}
+                      value={senhaServidor}
+                      onChangeText={setSenhaServidor}
+                    />
+                    <TouchableOpacity
+                      style={styles.nextBtn}
+                      onPress={() => setEtapa("cliente")}
+                    >
+                      <Text style={styles.nextText}>Continuar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {etapa === "cliente" && (
+                  <View style={styles.senhaBox}>
+                    <Text style={styles.etapaTitle}>Cliente: digite sua senha</Text>
+                    <TextInput
+                      secureTextEntry
+                      placeholder="Senha do cliente"
+                      placeholderTextColor="#888"
+                      style={styles.inputSenha}
+                      value={senhaCliente}
+                      onChangeText={setSenhaCliente}
+                    />
+                    <View style={{ flexDirection: "row", marginTop: 10 }}>
+                      <TouchableOpacity
+                        style={[styles.modalBtn, { backgroundColor: "#00C46B", flex: 1 }]}
+                        onPress={finalizarLevantamento}
+                      >
+                        <Ionicons name="checkmark" color="#fff" size={18} />
+                        <Text style={styles.modalBtnText}>Confirmar</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.modalBtn, { backgroundColor: "#FF5C63", flex: 1 }]}
+                        onPress={recusarLevantamento}
+                      >
+                        <Ionicons name="close" color="#fff" size={18} />
+                        <Text style={styles.modalBtnText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 // --- ESTILOS ---
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#051937" },
-  container: { flex: 1 },
   fixedHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -310,13 +342,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: { color: "#8F80FF", fontSize: 14 },
   detailValue: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-  },
   modalBtn: {
-    flex: 1,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -348,4 +374,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   permissionText: { color: "#fff", marginLeft: 8, fontWeight: "600" },
+  centerContent: { alignItems: "center", justifyContent: "center", padding: 30 },
+  senhaBox: { marginTop: 20 },
+  etapaTitle: { color: "#8F80FF", fontWeight: "600", marginBottom: 8 },
+  inputSenha: {
+    backgroundColor: "#06243B",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    color: "#fff",
+  },
+  nextBtn: {
+    backgroundColor: "#4C44C1",
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  nextText: { color: "#fff", fontWeight: "700", textAlign: "center" },
 });
