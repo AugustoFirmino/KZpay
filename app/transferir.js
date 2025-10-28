@@ -1,38 +1,71 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Print from "expo-print";
 import { useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  Alert,
-  Clipboard,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Clipboard,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
 export default function Levantamento() {
   const router = useRouter();
-  const [saldo, setSaldo] = useState(245000);
+
+  // Saldo inicial (podes buscar do backend mais tarde)
+  const [saldo, setSaldo] = useState(4450000000000);
+
+  // campos do form
   const [valor, setValor] = useState("");
+  const [metodo, setMetodo] = useState("IBAN");
+  const [referencia, setReferencia] = useState("");
   const [pin, setPin] = useState("");
+
+  // titular detectado
+  const [titular, setTitular] = useState(null);
+
+  // histórico de levantamentos (local)
   const [history, setHistory] = useState([]);
+
+  // modal QR
   const [qrVisible, setQrVisible] = useState(false);
   const [activeQrItem, setActiveQrItem] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(0);
 
-  const valoresRapidos = [1000, 2000, 3000, 4000, 5000, 10000];
+  // Base de dados simulada
+  const contasFake = [
+    { metodo: "IBAN", ref: "AO060012345678901234567", nome: "Carlos Alberto", pais: "Angola" },
+    { metodo: "Telefone", ref: "923456789", nome: "Maria João", pais: "Angola" },
+    { metodo: "Conta", ref: "1234567890", nome: "Jorge Manuel", pais: "Angola" },
+  ];
 
+  const metodos = [
+    { id: "IBAN", icon: "card-outline", label: "IBAN" },
+    { id: "Telefone", icon: "call-outline", label: "Telefone" },
+    { id: "Conta", icon: "wallet-outline", label: "Nº de Conta" },
+  ];
+
+  // --- Buscar titular conforme método e referência ---
+  const buscarTitular = (valorRef, metodoAtual) => {
+    const match = contasFake.find(
+      (c) =>
+        c.metodo === metodoAtual &&
+        valorRef &&
+        c.ref.toLowerCase().includes(valorRef.toLowerCase())
+    );
+    setTitular(match || null);
+  };
+
+  // Função principal do levantamento
   const handleLevantamento = () => {
-    if (!valor || !pin) {
-      Alert.alert("Erro", "Por favor, preencha todos os campos!");
+    if (!valor || !referencia || !pin) {
+      Alert.alert("Erro", "Por favor preencha todos os campos!");
       return;
     }
 
@@ -47,130 +80,50 @@ export default function Levantamento() {
       return;
     }
 
-    if (pin.length !== 4) {
-      Alert.alert("Erro", "O PIN deve ter 4 dígitos.");
-      return;
-    }
-
+    // Gerar código KZPay único simples
     const kzpayCode = `KZPAY-${Math.floor(100000 + Math.random() * 900000)}`;
     const id = `${Date.now()}`;
-    const expiresAt = Date.now() + 10 * 60 * 1000;
 
     const newItem = {
       id,
       valor: valorNum,
       valorStr: formatCurrency(valorNum),
+      metodo,
+      referencia,
       kzpayCode,
       status: "pending",
       createdAt: new Date().toISOString(),
-      expiresAt,
     };
 
+    // Atualizar histórico
     setHistory((h) => [newItem, ...h]);
+
+    // Atualizar saldo
     setSaldo((s) => s - valorNum);
+
+    // Abrir modal com QR
     setActiveQrItem(newItem);
     setQrVisible(true);
-    setTimeLeft(600);
 
+    // Limpar campos
     setValor("");
+    setReferencia("");
     setPin("");
+    setTitular(null);
   };
 
-  // Temporizador QR (10 min)
-  useEffect(() => {
-    if (!qrVisible || !activeQrItem) return;
-    const timer = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(timer);
-          expireQr();
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [qrVisible, activeQrItem]);
-
-  const expireQr = () => {
+  // Marcar como confirmado
+  const confirmAtCashier = (itemId) => {
     setHistory((h) =>
-      h.map((it) =>
-        it.id === activeQrItem?.id && it.status === "pending"
-          ? { ...it, status: "cancelled" }
-          : it
-      )
+      h.map((it) => (it.id === itemId ? { ...it, status: "confirmed" } : it))
     );
-    setActiveQrItem((prev) =>
-      prev && prev.status === "pending" ? { ...prev, status: "cancelled" } : prev
-    );
-    Alert.alert("Expirado", "O QR Code expirou após 10 minutos.");
-  };
-
-  const gerarReciboPDF = async (item) => {
-    try {
-      const localTxt = item.local || "Agência Principal - Luanda";
-      const nomeCliente = item.nome || "Cliente KZPay";
-      const nbt = item.nbt || "0000 0000 0000";
-
-      const qrData = `KZPAY:${item.kzpayCode}|VALOR:${item.valor}|ID:${item.id}|NBT:${nbt}|CLIENTE:${nomeCliente}`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-        qrData
-      )}&format=png`;
-
-      const html = `
-        <!doctype html>
-        <html>
-        <head>
-          <meta charset="utf-8"/>
-          <style>
-            body { font-family: Arial; color: #152238; background: #f2f6fb; }
-            .wrap { width: 90%; max-width: 720px; margin: 28px auto; }
-            .card { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(11,18,40,0.06); }
-            .header { background: linear-gradient(135deg,#4C44C1,#8F80FF); color: #fff; padding: 20px; }
-            .body { padding: 22px; display:flex; gap:18px; }
-            .amountValue { font-size:28px; font-weight:800; color:#111; margin:0; }
-            .status { margin-top:10px; display:inline-block; padding:8px 12px; border-radius:8px; background:#f5f7ff; color:#4C44C1; font-weight:700; font-size:13px; }
-            .infoRow { display:flex; justify-content:space-between; font-size:13px; margin-top:6px; }
-            .qrCard img { width:200px; height:200px; border-radius:10px; }
-          </style>
-        </head>
-        <body>
-          <div class="wrap">
-            <div class="card">
-              <div class="header">
-                <h2>KZPay - Comprovativo de Levantamento</h2>
-                <p>${new Date(item.createdAt).toLocaleString()}</p>
-              </div>
-              <div class="body">
-                <div style="flex:1;">
-                  <div class="amountValue">${item.valorStr}</div>
-                  <div class="status">Levantamento Efectuado</div>
-                  <div class="infoRow"><b>Cliente:</b> ${nomeCliente}</div>
-                  <div class="infoRow"><b>NBT:</b> ${nbt}</div>
-                  <div class="infoRow"><b>Código:</b> ${item.kzpayCode}</div>
-                  <div class="infoRow"><b>ID:</b> ${item.id}</div>
-                  <div class="infoRow"><b>Local:</b> ${localTxt}</div>
-                </div>
-                <div class="qrCard">
-                  <img src="${qrUrl}" alt="QR" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-      const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Partilhar Recibo de Levantamento",
-      });
-    } catch (e) {
-      console.error("gerarReciboPDF error:", e);
-      Alert.alert("Erro", "Não foi possível gerar o recibo.");
+    if (activeQrItem && activeQrItem.id === itemId) {
+      setActiveQrItem((p) => (p ? { ...p, status: "confirmed" } : p));
     }
+    Alert.alert("Confirmado", "Levantamento confirmado no caixa!");
   };
 
+  // Cancelar levantamento (e devolver saldo)
   const cancelLevantamento = (itemId) => {
     Alert.alert("Cancelar Levantamento", "Deseja cancelar este levantamento?", [
       { text: "Não", style: "cancel" },
@@ -187,8 +140,9 @@ export default function Levantamento() {
               return it;
             })
           );
-          if (activeQrItem?.id === itemId)
+          if (activeQrItem && activeQrItem.id === itemId) {
             setActiveQrItem((p) => (p ? { ...p, status: "cancelled" } : p));
+          }
         },
       },
     ]);
@@ -197,9 +151,6 @@ export default function Levantamento() {
   const openQrModalForItem = (item) => {
     setActiveQrItem(item);
     setQrVisible(true);
-    setTimeLeft(
-      item.expiresAt ? Math.max(0, Math.floor((item.expiresAt - Date.now()) / 1000)) : 0
-    );
   };
 
   const copyKzpayToClipboard = (code) => {
@@ -211,36 +162,64 @@ export default function Levantamento() {
     }
   };
 
-  const formatCurrency = (v) =>
-    new Intl.NumberFormat("pt-PT").format(Number(v) || 0) + " KZ";
-
-  const formatTimer = (s) => {
-    const m = Math.floor(s / 60).toString().padStart(2, "0");
-    const sec = (s % 60).toString().padStart(2, "0");
-    return `${m}:${sec}`;
-  };
+  function formatCurrency(v) {
+    let n = typeof v === "number" ? v : Number(String(v).replace(/\D/g, ""));
+    if (isNaN(n)) n = 0;
+    return new Intl.NumberFormat("pt-PT").format(n) + " KZ";
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Cabeçalho */}
+        {/* Cabeçalho fixo */}
         <View style={styles.fixedHeader}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={22} color="#8F80FF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Levantamento</Text>
+          <Text style={styles.headerTitle}>Transferir</Text>
           <View style={{ width: 26 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Saldo */}
-          <LinearGradient colors={["#8F80FF", "#4C44C1", "#1F1C2C"]} style={styles.balanceCard}>
+          <LinearGradient colors={["#8F80FF", "#4C44C1", "#1F1C2C"]}  style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Saldo Disponível</Text>
             <Text style={styles.balanceValue}>{formatCurrency(saldo)}</Text>
             <Text style={styles.balanceSub}>Atualizado agora</Text>
           </LinearGradient>
+          
 
-          {/* Valor a levantar */}
+          {/* Métodos */}
+          <Text style={styles.sectionTitle}>Escolha o método de levantamento</Text>
+          <View style={styles.methodRow}>
+            {metodos.map((m) => (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.methodButton, metodo === m.id && styles.methodButtonActive]}
+                onPress={() => {
+                  setMetodo(m.id);
+                  setReferencia("");
+                  setTitular(null);
+                }}
+              >
+                <Ionicons
+                  name={m.icon}
+                  size={22}
+                  color={metodo === m.id ? "#8F80FF" : "#fff"}
+                />
+                <Text
+                  style={[
+                    styles.methodText,
+                    metodo === m.id && { color: "#8F80FF", fontWeight: "600" },
+                  ]}
+                >
+                  {m.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Inputs */}
           <View style={styles.inputContainer}>
             <Ionicons name="cash-outline" size={20} color="#8F80FF" />
             <TextInput
@@ -253,35 +232,53 @@ export default function Levantamento() {
             />
           </View>
 
-          {/* Botões de valores rápidos */}
-          <View style={styles.radioRow}>
-            {valoresRapidos.map((v) => (
-              <TouchableOpacity
-                key={v}
-                style={[
-                  styles.radioButton,
-                  Number(valor) === v && styles.radioButtonActive,
-                ]}
-                onPress={() => setValor(v.toString())}
-              >
-                <Text
-                  style={[
-                    styles.radioText,
-                    Number(valor) === v && { color: "#8F80FF", fontWeight: "700" },
-                  ]}
-                >
-                  {formatCurrency(v)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name={
+                metodo === "IBAN"
+                  ? "card-outline"
+                  : metodo === "Telefone"
+                  ? "call-outline"
+                  : "wallet-outline"
+              }
+              size={20}
+              color="#8F80FF"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder={
+                metodo === "IBAN"
+                  ? "Digite o IBAN completo"
+                  : metodo === "Telefone"
+                  ? "Digite o telefone"
+                  : "Digite o número da conta"
+              }
+              placeholderTextColor="#cfcfcf"
+              keyboardType={metodo === "Telefone" ? "phone-pad" : "default"}
+              value={referencia}
+              onChangeText={(txt) => {
+                setReferencia(txt);
+                buscarTitular(txt, metodo);
+              }}
+            />
           </View>
 
-          {/* PIN */}
+          {/* Mostra nome e país se encontrado */}
+          {titular && (
+            <View style={styles.titularBox}>
+              <Ionicons name="person-circle-outline" size={26} color="#8F80FF" />
+              <View>
+                <Text style={styles.titularNome}>{titular.nome}</Text>
+                <Text style={styles.titularPais}>{titular.pais}</Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.inputContainer}>
             <Ionicons name="lock-closed-outline" size={20} color="#8F80FF" />
             <TextInput
               style={styles.input}
-              placeholder="PIN de segurança (4 dígitos)"
+              placeholder="PIN de segurança"
               placeholderTextColor="#cfcfcf"
               secureTextEntry
               keyboardType="numeric"
@@ -291,7 +288,7 @@ export default function Levantamento() {
             />
           </View>
 
-          {/* Botão confirmar */}
+          {/* Botão Confirmar */}
           <TouchableOpacity style={styles.button} onPress={handleLevantamento}>
             <LinearGradient colors={["#8F80FF", "#4C44C1"]} style={styles.buttonGradient}>
               <Ionicons name="wallet-outline" size={18} color="#fff" />
@@ -301,9 +298,10 @@ export default function Levantamento() {
 
           {/* Histórico */}
           <View style={{ marginTop: 30 }}>
-            <Text style={styles.historyTitle}>Histórico de Levantamentos</Text>
+            <Text style={styles.historyTitle}>Histórico de Transferências</Text>
+
             {history.length === 0 && (
-              <Text style={styles.emptyText}>Nenhum levantamento ainda.</Text>
+              <Text style={styles.emptyText}>Nenhum transferência ainda.</Text>
             )}
 
             {history.map((h) => (
@@ -311,7 +309,7 @@ export default function Levantamento() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.historyText}>{h.valorStr}</Text>
                   <Text style={styles.historySub}>
-                    {new Date(h.createdAt).toLocaleString()}
+                    {h.metodo} • {new Date(h.createdAt).toLocaleString()}
                   </Text>
                 </View>
 
@@ -341,25 +339,10 @@ export default function Levantamento() {
                       <Ionicons name="qr-code-outline" size={18} color="#fff" />
                     </TouchableOpacity>
 
-                    {h.status === "confirmed" && (
-                      <TouchableOpacity
-                        onPress={() => gerarReciboPDF(h)}
-                        style={[
-                          styles.smallButton,
-                          { marginLeft: 8, backgroundColor: "#00C46B" },
-                        ]}
-                      >
-                        <Ionicons name="document-text-outline" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    )}
-
                     {h.status === "pending" && (
                       <TouchableOpacity
                         onPress={() => cancelLevantamento(h.id)}
-                        style={[
-                          styles.smallButton,
-                          { marginLeft: 8, backgroundColor: "#2a1a24" },
-                        ]}
+                        style={[styles.smallButton, { marginLeft: 8, backgroundColor: "#2a1a24" }]}
                       >
                         <Ionicons name="close-outline" size={18} color="#fff" />
                       </TouchableOpacity>
@@ -371,22 +354,13 @@ export default function Levantamento() {
           </View>
         </ScrollView>
 
-        {/* Modal QR */}
+        {/* Modal QR Code */}
         <Modal visible={qrVisible} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Text style={styles.modalTitle}>Apresentar no Caixa</Text>
-                <TouchableOpacity
-                  onPress={() => setQrVisible(false)}
-                  style={{ padding: 6 }}
-                >
+                <TouchableOpacity onPress={() => setQrVisible(false)} style={{ padding: 6 }}>
                   <Ionicons name="close" size={22} color="#999" />
                 </TouchableOpacity>
               </View>
@@ -401,19 +375,25 @@ export default function Levantamento() {
                     Entregue este QR ou código ao caixa para confirmar o levantamento
                   </Text>
 
-                  {activeQrItem.status === "pending" && (
-                    <Text style={{ color: "#FFD700", marginTop: 6 }}>
-                      Expira em: {formatTimer(timeLeft)}
-                    </Text>
-                  )}
+                  <View style={{ flexDirection: "row", marginTop: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => copyKzpayToClipboard(activeQrItem.kzpayCode)}
+                      style={[styles.modalButton, { marginRight: 8 }]}
+                    >
+                      <Ionicons name="copy-outline" size={16} color="#fff" />
+                      <Text style={styles.modalButtonText}>Copiar Código</Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => copyKzpayToClipboard(activeQrItem.kzpayCode)}
-                    style={[styles.modalButton, { marginTop: 12 }]}
-                  >
-                    <Ionicons name="copy-outline" size={16} color="#fff" />
-                    <Text style={styles.modalButtonText}>Copiar Código</Text>
-                  </TouchableOpacity>
+                    {activeQrItem.status === "pending" && (
+                      <TouchableOpacity
+                        onPress={() => confirmAtCashier(activeQrItem.id)}
+                        style={[styles.modalButton, { backgroundColor: "#00C46B" }]}
+                      >
+                        <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+                        <Text style={styles.modalButtonText}>Confirmar no Caixa</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               ) : (
                 <Text>Nenhum detalhe disponível</Text>
@@ -448,10 +428,24 @@ const styles = StyleSheet.create({
   backButton: { backgroundColor: "#06243B", padding: 8, borderRadius: 10 },
   headerTitle: { color: "#8F80FF", fontSize: 18, fontWeight: "700" },
   scrollContent: { paddingTop: 120, paddingHorizontal: 18, paddingBottom: 40 },
-  balanceCard: { borderRadius: 20, padding: 25, marginBottom: 25 },
+  
+balanceCard: { borderRadius: 20, padding: 25, marginBottom: 25 },
   balanceLabel: { color: "#fff", opacity: 0.8, fontSize: 14 },
-  balanceValue: { color: "#fff", fontWeight: "bold", marginTop: 6, fontSize: 22 },
+  balanceValue: { color: "#fff", fontWeight: "bold", fontSize:24, marginTop: 6 },
   balanceSub: { color: "#fff", opacity: 0.7, fontSize: 13, marginTop: 4 },
+  
+  sectionTitle: { color: "#fff", fontSize: 15, fontWeight: "600", marginBottom: 12 },
+  methodRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14 },
+  methodButton: {
+    backgroundColor: "#06243B",
+    flex: 1,
+    marginHorizontal: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  methodButtonActive: { borderColor: "#8F80FF", borderWidth: 2 },
+  methodText: { color: "#fff", marginTop: 6 },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -462,18 +456,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: { flex: 1, color: "#fff", marginLeft: 10, fontSize: 15 },
-  radioRow: {
+  titularBox: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#0A2A45",
+    borderRadius: 12,
+    padding: 10,
     marginBottom: 14,
   },
-  radioButton: {
-    backgroundColor: "#06243B",
-    paddingVertical: 10
-  },
-  radioButtonActive: { borderWidth: 2, borderColor: "#8F80FF" },
-  radioText: { color: "#fff", fontSize: 14 },
+  titularNome: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  titularPais: { color: "#8F80FF", fontSize: 13 },
   button: { marginTop: 8, borderRadius: 12, overflow: "hidden" },
   buttonGradient: {
     flexDirection: "row",
@@ -482,8 +474,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   buttonText: { color: "#fff", fontWeight: "700", marginLeft: 8 },
-  historyTitle: { color: "#8F80FF", fontSize: 16, fontWeight: "700", marginBottom: 12 },
-  emptyText: { color: "#fff", fontSize: 14, textAlign: "center", marginTop: 6 },
+    historyTitle: { 
+    color: "#8F80FF", 
+    fontSize: 16, 
+    fontWeight: "700", 
+    marginBottom: 12 
+  },
+   emptyText: { 
+    color:  "#fff", 
+    fontSize: 14, 
+    textAlign: "center", 
+    marginTop: 6 
+  },
   historyCard: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -493,10 +495,20 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
-
-  historyText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  historySub: { color: "#8F80FF", fontSize: 12, marginTop: 3 },
-  statusText: { fontWeight: "600", fontSize: 13 },
+  historyText: { 
+    color: "#fff", 
+    fontSize: 15, 
+    fontWeight: "600" 
+  },
+  historySub: { 
+    color: "#8F80FF", 
+    fontSize: 12, 
+    marginTop: 3 
+  },
+  statusText: { 
+    fontWeight: "600", 
+    fontSize: 13 
+  },
   smallButton: {
     backgroundColor: "#0B3C5D",
     padding: 6,
@@ -517,10 +529,29 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
   },
-  modalTitle: { color: "#8F80FF", fontSize: 18, fontWeight: "700" },
-  qrBox: { backgroundColor: "#fff", padding: 14, borderRadius: 16, marginTop: 10 },
-  kzpayCode: { color: "#fff", fontWeight: "700", fontSize: 16, marginTop: 10 },
-  kzpayHint: { color: "#8F80FF", fontSize: 13, textAlign: "center", marginTop: 4 },
+  modalTitle: {
+    color: "#8F80FF",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  qrBox: {
+    backgroundColor: "#fff",
+    padding: 14,
+    borderRadius: 16,
+    marginTop: 10,
+  },
+  kzpayCode: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+    marginTop: 10,
+  },
+  kzpayHint: {
+    color: "#8F80FF",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 4,
+  },
   modalButton: {
     backgroundColor: "#8F80FF",
     flexDirection: "row",
@@ -530,5 +561,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
-  modalButtonText: { color: "#fff", fontWeight: "600", fontSize: 14, marginLeft: 6 },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+    marginLeft: 6,
+  },
 });

@@ -59,6 +59,7 @@ export default function Levantamento() {
     const newItem = {
       id,
       valor: valorNum,
+    
       valorStr: formatCurrency(valorNum),
       kzpayCode,
       status: "pending",
@@ -106,71 +107,209 @@ export default function Levantamento() {
     Alert.alert("Expirado", "O QR Code expirou após 10 minutos.");
   };
 
-  const gerarReciboPDF = async (item) => {
-    try {
-      const localTxt = item.local || "Agência Principal - Luanda";
-      const nomeCliente = item.nome || "Cliente KZPay";
-      const nbt = item.nbt || "0000 0000 0000";
+  const confirmAtCashier = async (itemId) => {
+    const item = history.find((it) => it.id === itemId);
+    if (!item) return;
 
-      const qrData = `KZPAY:${item.kzpayCode}|VALOR:${item.valor}|ID:${item.id}|NBT:${nbt}|CLIENTE:${nomeCliente}`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-        qrData
-      )}&format=png`;
+    const updated = { ...item, status: "confirmed" };
 
-      const html = `
-        <!doctype html>
-        <html>
+    setHistory((h) => h.map((it) => (it.id === itemId ? updated : it)));
+    setActiveQrItem(updated);
+    setQrVisible(false);
+
+    Alert.alert("Confirmado", "Levantamento confirmado no caixa!");
+    await gerarReciboPDF(updated);
+  };
+
+const gerarReciboPDF = async (item) => {
+  try {
+    // Certifica-te que o item contém: id, kzpayCode, valorStr, createdAt, nome, nbt, local (opcional)
+    const localTxt = item.local || "Agência Principal - Luanda";
+    const nomeCliente = item.nome || "Cliente KZPay";
+    const nbt = item.nbt || "0000 0000 0000";
+
+    // Geração do QR (PNG) com dados essenciais
+    const qrData = `KZPAY:${item.kzpayCode}|VALOR:${item.valor}|ID:${item.id}|NBT:${nbt}|CLIENTE:${nomeCliente}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+      qrData
+    )}&format=png`;
+
+    const html = `
+      <!doctype html>
+      <html>
         <head>
           <meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width, initial-scale=1"/>
           <style>
-            body { font-family: Arial; color: #152238; background: #f2f6fb; }
+            @media print { @page { margin: 0; } }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; 
+              margin: 0; 
+              background: #f2f6fb; 
+              color: #152238; 
+            }
             .wrap { width: 90%; max-width: 720px; margin: 28px auto; }
-            .card { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(11,18,40,0.06); }
-            .header { background: linear-gradient(135deg,#4C44C1,#8F80FF); color: #fff; padding: 20px; }
-            .body { padding: 22px; display:flex; gap:18px; }
-            .amountValue { font-size:28px; font-weight:800; color:#111; margin:0; }
-            .status { margin-top:10px; display:inline-block; padding:8px 12px; border-radius:8px; background:#f5f7ff; color:#4C44C1; font-weight:700; font-size:13px; }
-            .infoRow { display:flex; justify-content:space-between; font-size:13px; margin-top:6px; }
-            .qrCard img { width:200px; height:200px; border-radius:10px; }
+            .card {
+              background: #ffffff;
+              border-radius: 14px;
+              overflow: hidden;
+              box-shadow: 0 10px 30px rgba(11,18,40,0.06);
+              border: 1px solid rgba(71,63,180,0.06);
+            }
+
+            .header {
+              background: linear-gradient(135deg,#4C44C1 0%, #8F80FF 100%);
+              color: #fff;
+              padding: 20px 24px;
+              display: flex;
+              align-items: center;
+              gap: 16px;
+            }
+            .logo {
+              width: 64px;
+              height: 64px;
+              border-radius: 10px;
+              background: rgba(255,255,255,0.12);
+              display:flex; align-items:center; justify-content:center;
+            }
+            .logo img { width: 40px; height: 40px; object-fit:contain; }
+            .brand { font-weight:700; font-size:18px; margin:0; }
+            .brand-sub { margin:0; opacity:0.92; font-size:12px; }
+
+            .body { padding: 22px 24px; display: flex; gap: 18px; }
+            .left { flex: 1; }
+            .right { width: 260px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:12px; }
+
+            .amountBox {
+              background: linear-gradient(180deg,#fff 0%, #fbfcff 100%);
+              border: 1px solid #eef1fb;
+              padding: 18px;
+              border-radius: 10px;
+              text-align: left;
+            }
+            .amountLabel { font-size:12px; color:#6c6f86; margin-bottom:6px; font-weight:600; }
+            .amountValue { font-size:28px; font-weight:800; color:#111827; margin:0; }
+
+            .status {
+              margin-top:10px;
+              display:inline-block;
+              padding:8px 12px;
+              border-radius: 8px;
+              background: #f5f7ff;
+              color: #4C44C1;
+              font-weight:700;
+              font-size:13px;
+            }
+
+            .infoGrid { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+            .infoRow { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+            .label { color:#6b6f86; font-size:13px; font-weight:600; }
+            .value { color:#0f1724; font-size:14px; }
+
+            .qrCard {
+              background: #fff;
+              padding: 12px;
+              border-radius: 12px;
+              border: 1px solid #eef1fb;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              flex-direction:column;
+            }
+            .qrCard img { width: 200px; height:200px; object-fit:contain; border-radius:10px; }
+
+            .footer {
+              padding: 16px 22px;
+              background: #fbfcff;
+              border-top: 1px solid #f0f3ff;
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+            }
+            .footer .left { font-size:12px; color:#64748b; }
+            .footer .right { font-size:12px; color:#64748b; text-align:right; }
+
+            .signature {
+              margin-top:16px;
+              display:flex;
+              justify-content:space-between;
+              gap:12px;
+            }
+            .sigBox { flex:1; padding:10px; border-radius:8px; border:1px dashed #e6ecff; text-align:center; color:#7b7f95; font-size:13px; }
           </style>
         </head>
         <body>
           <div class="wrap">
             <div class="card">
               <div class="header">
-                <h2>KZPay - Comprovativo de Levantamento</h2>
-                <p>${new Date(item.createdAt).toLocaleString()}</p>
-              </div>
-              <div class="body">
+                <div class="logo">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Bank_font_awesome.svg" alt="KZPay" />
+                </div>
                 <div style="flex:1;">
-                  <div class="amountValue">${item.valorStr}</div>
-                  <div class="status">Levantamento Efectuado</div>
-                  <div class="infoRow"><b>Cliente:</b> ${nomeCliente}</div>
-                  <div class="infoRow"><b>NBT:</b> ${nbt}</div>
-                  <div class="infoRow"><b>Código:</b> ${item.kzpayCode}</div>
-                  <div class="infoRow"><b>ID:</b> ${item.id}</div>
-                  <div class="infoRow"><b>Local:</b> ${localTxt}</div>
+                  <div class="brand">KZPay</div>
+                  <div class="brand-sub">Comprovativo de Levantamento</div>
                 </div>
-                <div class="qrCard">
-                  <img src="${qrUrl}" alt="QR" />
+                <div style="text-align:right;">
+                  <div style="font-size:12px;opacity:0.92">Data</div>
+                  <div style="font-weight:700">${new Date(item.createdAt).toLocaleString()}</div>
                 </div>
+              </div>
+
+              <div class="body">
+                <div class="left">
+                  <div class="amountBox">
+                    <div class="amountLabel">Valor levantado</div>
+                    <div class="amountValue">${item.valorStr}</div>
+                    <div class="status">Levantamento Efectuado</div>
+
+                    <div class="infoGrid">
+                      <div class="infoRow"><div class="label">Nome do Cliente</div><div class="value">${nomeCliente}</div></div>
+                      <div class="infoRow"><div class="label">NBT / Nº Conta</div><div class="value">${nbt}</div></div>
+                      <div class="infoRow"><div class="label">Código KZPay</div><div class="value">${item.kzpayCode}</div></div>
+                      <div class="infoRow"><div class="label">ID Transacção</div><div class="value">${item.id}</div></div>
+                      <div class="infoRow"><div class="label">Local</div><div class="value">${localTxt}</div></div>
+                    </div>
+
+                    <div class="signature">
+                      <div class="sigBox">Assinatura do Cliente</div>
+                      <div class="sigBox">Assinatura do Caixa</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="right">
+                  <div style="font-weight:700;color:#152238;">Código QR</div>
+                  <div class="qrCard">
+                    <img src="${qrUrl}" alt="QR Code" />
+                    <div style="margin-top:8px;font-size:12px;color:#6b6f86;">Apresente no balcão para validação</div>
+                  </div>
+
+                  <div style="margin-top:10px;font-size:12px;color:#8a95b8;text-align:center;">
+                    Recibo gerado por KZPay
+                  </div>
+                </div>
+              </div>
+
+              <div class="footer">
+                <div class="left">Documento emitido automaticamente — KZPay</div>
+                <div class="right">Guarde este comprovativo como prova de levantamento</div>
               </div>
             </div>
           </div>
         </body>
-        </html>
-      `;
-      const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, {
-        mimeType: "application/pdf",
-        dialogTitle: "Partilhar Recibo de Levantamento",
-      });
-    } catch (e) {
-      console.error("gerarReciboPDF error:", e);
-      Alert.alert("Erro", "Não foi possível gerar o recibo.");
-    }
-  };
+      </html>
+    `;
 
+    const { uri } = await Print.printToFileAsync({ html });
+    await Sharing.shareAsync(uri, {
+      mimeType: "application/pdf",
+      dialogTitle: "Partilhar Recibo de Levantamento",
+    });
+  } catch (e) {
+    console.error("gerarReciboPDF error:", e);
+    Alert.alert("Erro", "Não foi possível gerar o recibo.");
+  }
+};
   const cancelLevantamento = (itemId) => {
     Alert.alert("Cancelar Levantamento", "Deseja cancelar este levantamento?", [
       { text: "Não", style: "cancel" },
@@ -215,7 +354,9 @@ export default function Levantamento() {
     new Intl.NumberFormat("pt-PT").format(Number(v) || 0) + " KZ";
 
   const formatTimer = (s) => {
-    const m = Math.floor(s / 60).toString().padStart(2, "0");
+    const m = Math.floor(s / 60)
+      .toString()
+      .padStart(2, "0");
     const sec = (s % 60).toString().padStart(2, "0");
     return `${m}:${sec}`;
   };
@@ -407,13 +548,36 @@ export default function Levantamento() {
                     </Text>
                   )}
 
-                  <TouchableOpacity
-                    onPress={() => copyKzpayToClipboard(activeQrItem.kzpayCode)}
-                    style={[styles.modalButton, { marginTop: 12 }]}
-                  >
-                    <Ionicons name="copy-outline" size={16} color="#fff" />
-                    <Text style={styles.modalButtonText}>Copiar Código</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: "row", marginTop: 12 }}>
+                    <TouchableOpacity
+                      onPress={() =>
+                        copyKzpayToClipboard(activeQrItem.kzpayCode)
+                      }
+                      style={[styles.modalButton, { marginRight: 8 }]}
+                    >
+                      <Ionicons name="copy-outline" size={16} color="#fff" />
+                      <Text style={styles.modalButtonText}>Copiar Código</Text>
+                    </TouchableOpacity>
+
+                    {activeQrItem.status === "pending" && (
+                      <TouchableOpacity
+                        onPress={() => confirmAtCashier(activeQrItem.id)}
+                        style={[
+                          styles.modalButton,
+                          { backgroundColor: "#00C46B" },
+                        ]}
+                      >
+                        <Ionicons
+                          name="checkmark-circle-outline"
+                          size={16}
+                          color="#fff"
+                        />
+                        <Text style={styles.modalButtonText}>
+                          Confirmar no Caixa
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               ) : (
                 <Text>Nenhum detalhe disponível</Text>
@@ -470,7 +634,11 @@ const styles = StyleSheet.create({
   },
   radioButton: {
     backgroundColor: "#06243B",
-    paddingVertical: 10
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    width: "30%",
+    marginVertical: 5,
   },
   radioButtonActive: { borderWidth: 2, borderColor: "#8F80FF" },
   radioText: { color: "#fff", fontSize: 14 },

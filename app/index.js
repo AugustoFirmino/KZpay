@@ -3,18 +3,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    FlatList,
-    Image,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 
 const { width, height } = Dimensions.get("window");
@@ -38,7 +38,7 @@ export default function HomeScreen() {
   const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
   const arrowAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
-  const [balance, setBalance] = useState(4525000);
+  const [balance, setBalance] = useState(450000000);
 
   const toggleMenu = () => {
     const toValue = menuVisible ? -drawerWidth : 0;
@@ -88,27 +88,23 @@ export default function HomeScreen() {
 
   const actions = [
     { icon: "send", label: "Transferir", route: "/transferir" },
-    { icon: "qr-code", label: "Pagar", route: "/pagar" },
+    { icon: "qr-code", label: "Pagar", route: "/pagar_levantamento" },
     { icon: "cart", label: "Comprar", route: "/comprar" },
     { icon: "wallet", label: "Levantar", route: "/levantar" },
     { icon: "cash", label: "Adiantamento", route: "/adiantamento" },
     { icon: "card", label: "Crédito", route: "/credito" },
   ];
 
-  const formatWithThousands = (v) =>
-    new Intl.NumberFormat("pt-PT").format(v);
 
   const formatBalance = (value) => {
-    if (typeof value !== "number" || isNaN(value)) return "0 KZ";
-    if (value >= 1_000_000) {
-      const millions = value / 1_000_000;
-      const formatted =
-        Math.abs(Math.round(millions * 10) / 10) % 1 === 0
-          ? `${Math.round(millions)}M KZ`
-          : `${(Math.round(millions * 10) / 10).toFixed(1)}M KZ`;
-      return formatted;
-    }
-    return `${formatWithThousands(Math.round(value))} KZ`;
+    
+  
+ 
+    let n = typeof value === "number" ? value : Number(String(value).replace(/\D/g, ""));
+    if (isNaN(n)) n = 0;
+    return new Intl.NumberFormat("pt-PT").format(n) + " KZ";
+  
+
   };
 
   const getBalanceFontSize = (text) => {
@@ -144,7 +140,7 @@ export default function HomeScreen() {
                   source={{ uri: "https://cdn-icons-png.flaticon.com/512/194/194938.png" }}
                   style={styles.drawerAvatar}
                 />
-                <Text style={styles.drawerUsername}>João Manuel</Text>
+                <Text style={styles.drawerUsername}>Augusto Firmino</Text>
                 <Text style={styles.drawerSubtitle}>Conta pessoal</Text>
               </View>
 
@@ -208,7 +204,7 @@ export default function HomeScreen() {
               style={styles.avatar}
             />
             <View>
-              <Text style={styles.username}>João Manuel</Text>
+              <Text style={styles.username}>Augusto Firmino</Text>
               <Text style={styles.userSubtitle}>Conta pessoal • KZPay</Text>
             </View>
           </View>
