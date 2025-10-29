@@ -67,7 +67,7 @@ export default function Levantamento() {
     };
 
     setHistory((h) => [newItem, ...h]);
-    setSaldo((s) => s - valorNum);
+    //setSaldo((s) => s - valorNum);
     setActiveQrItem(newItem);
     setQrVisible(true);
     setTimeLeft(600);

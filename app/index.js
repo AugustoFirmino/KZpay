@@ -82,17 +82,17 @@ export default function HomeScreen() {
     { icon: "card-outline", label: "Gestão de Contas", route: "/contas" },
     { icon: "stats-chart-outline", label: "Atividades", route: "/actividades" },
     { icon: "settings-outline", label: "Configurações", route: "/configuracoes" },
-    { icon: "information-circle-outline", label: "Sobre o KZPay", route: "/sobre" },
+    { icon: "information-circle-outline", label: "Sobre o KZPay", route: "/sobrekzpay" },
     { icon: "log-out-outline", label: "Sair", route: "logout" },
   ];
 
   const actions = [
-    { icon: "send", label: "Transferir", route: "/transferir" },
-    { icon: "qr-code", label: "Pagar", route: "/pagar_levantamento" },
-    { icon: "cart", label: "Comprar", route: "/comprar" },
-    { icon: "wallet", label: "Levantar", route: "/levantar" },
-    { icon: "cash", label: "Adiantamento", route: "/adiantamento" },
-    { icon: "card", label: "Crédito", route: "/credito" },
+    { icon: "send", label: "Transferir", route: "/cliente/transferir" },
+    { icon: "qr-code", label: "Pagar", route: "/cliente/pagar" },
+    { icon: "cart", label: "Comprar", route: "/cliente/comprar" },
+    { icon: "wallet", label: "Levantar", route: "/cliente/levantar" },
+    { icon: "cash", label: "Adiantamento", route: "/cliente/adiantamento" },
+    { icon: "card", label: "Crédito", route: "/cliente/credito" },
   ];
 
 

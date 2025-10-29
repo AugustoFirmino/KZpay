@@ -110,7 +110,7 @@ export default function ConfirmarLevantamento() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={22} color="#8F80FF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Confirmar Levantamento</Text>
+        <Text style={styles.headerTitle}>Autorizar Levantamento</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -138,7 +138,7 @@ export default function ConfirmarLevantamento() {
             <Ionicons name="qr-code-outline" size={50} color="#fff" />
             <Text style={styles.scanTitle}>Ler QR Code do Cliente</Text>
             <Text style={styles.scanSubtitle}>
-              Aponte a câmara para o QR do cliente para confirmar o levantamento.
+              Aponte a câmara para o QR do cliente para Autorizar o levantamento.
             </Text>
 
             <TouchableOpacity
