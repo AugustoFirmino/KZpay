@@ -4,9 +4,8 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
-  Clipboard,
+  FlatList,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,402 +13,244 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import QRCode from "react-native-qrcode-svg";
 
-export default function Levantamento() {
+export default function CompraPage() {
   const router = useRouter();
 
-  // Saldo inicial (podes buscar do backend mais tarde)
-  const [saldo, setSaldo] = useState(245000);
+  const [modo, setModo] = useState("qr");
+  const [codigoManual, setCodigoManual] = useState("");
+  const [dadosCompra, setDadosCompra] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [senhaCliente, setSenhaCliente] = useState("");
+  const [status, setStatus] = useState(null);
+  const [valorCompra, setValorCompra] = useState("");
+  const [pesquisa, setPesquisa] = useState("");
+  const [entidadeSelecionada, setEntidadeSelecionada] = useState(null);
 
-  // campos do form
-  const [valor, setValor] = useState("");
-  const [metodo, setMetodo] = useState("IBAN");
-  const [referencia, setReferencia] = useState("");
-  const [pin, setPin] = useState("");
-
-  // titular detectado
-  const [titular, setTitular] = useState(null);
-
-  // histórico de levantamentos (local)
-  const [history, setHistory] = useState([]);
-
-  // modal QR
-  const [qrVisible, setQrVisible] = useState(false);
-  const [activeQrItem, setActiveQrItem] = useState(null);
-
-  // Base de dados simulada
-  const contasFake = [
-    { metodo: "IBAN", ref: "AO060012345678901234567", nome: "Carlos Alberto", pais: "Angola" },
-    { metodo: "Telefone", ref: "923456789", nome: "Maria João", pais: "Angola" },
-    { metodo: "Conta", ref: "1234567890", nome: "Jorge Manuel", pais: "Angola" },
+  // Simulação de 10 entidades
+  const entidades = [
+    { id: "1001", nome: "Maria António" },
+    { id: "1002", nome: "Augusto Correia" },
+    { id: "1003", nome: "Carlos Domingos" },
+    { id: "1004", nome: "Ana Silva" },
+    { id: "1005", nome: "João Pereira" },
+    { id: "1006", nome: "Sofia Costa" },
+    { id: "1007", nome: "Miguel Santos" },
+    { id: "1008", nome: "Carla Fernandes" },
+    { id: "1009", nome: "Paulo Oliveira" },
+    { id: "1010", nome: "Rita Gomes" },
   ];
 
-  const metodos = [
-    { id: "IBAN", icon: "card-outline", label: "IBAN" },
-    { id: "Telefone", icon: "call-outline", label: "Telefone" },
-    { id: "Conta", icon: "wallet-outline", label: "Nº de Conta" },
-  ];
+  const entidadesFiltradas = entidades.filter((e) =>
+    e.nome.toLowerCase().includes(pesquisa.toLowerCase())
+  );
 
-  // --- Buscar titular conforme método e referência ---
-  const buscarTitular = (valorRef, metodoAtual) => {
-    const match = contasFake.find(
-      (c) =>
-        c.metodo === metodoAtual &&
-        valorRef &&
-        c.ref.toLowerCase().includes(valorRef.toLowerCase())
-    );
-    setTitular(match || null);
-  };
+  const validarCompra = () => {
+    if (!entidadeSelecionada || !valorCompra)
+      return Alert.alert("Erro", "Escolha uma entidade e informe o valor.");
 
-  // Função principal do levantamento
-  const handleLevantamento = () => {
-    if (!valor || !referencia || !pin) {
-      Alert.alert("Erro", "Por favor preencha todos os campos!");
-      return;
-    }
-
-    const valorNum = Number(valor);
-    if (isNaN(valorNum) || valorNum <= 0) {
-      Alert.alert("Erro", "Valor inválido!");
-      return;
-    }
-
-    if (valorNum > saldo) {
-      Alert.alert("Saldo insuficiente", "Não tens saldo suficiente para este levantamento.");
-      return;
-    }
-
-    // Gerar código KZPay único simples
-    const kzpayCode = `KZPAY-${Math.floor(100000 + Math.random() * 900000)}`;
-    const id = `${Date.now()}`;
-
-    const newItem = {
-      id,
-      valor: valorNum,
-      valorStr: formatCurrency(valorNum),
-      metodo,
-      referencia,
-      kzpayCode,
-      status: "pending",
-      createdAt: new Date().toISOString(),
+    const mockData = {
+      cliente: entidadeSelecionada.nome,
+      valor: Number(valorCompra),
+      descricao: `Compra para ${entidadeSelecionada.nome}`,
+      hora: new Date().toLocaleString(),
     };
 
-    // Atualizar histórico
-    setHistory((h) => [newItem, ...h]);
-
-    // Atualizar saldo
-    setSaldo((s) => s - valorNum);
-
-    // Abrir modal com QR
-    setActiveQrItem(newItem);
-    setQrVisible(true);
-
-    // Limpar campos
-    setValor("");
-    setReferencia("");
-    setPin("");
-    setTitular(null);
+    setDadosCompra(mockData);
+    setModalVisible(true);
   };
 
-  // Marcar como confirmado
-  const confirmAtCashier = (itemId) => {
-    setHistory((h) =>
-      h.map((it) => (it.id === itemId ? { ...it, status: "confirmed" } : it))
-    );
-    if (activeQrItem && activeQrItem.id === itemId) {
-      setActiveQrItem((p) => (p ? { ...p, status: "confirmed" } : p));
-    }
-    Alert.alert("Confirmado", "Levantamento confirmado no caixa!");
+  const finalizarCompra = () => {
+    if (!senhaCliente) return Alert.alert("Erro", "Digite a senha para confirmar.");
+
+    setStatus("success");
+    setTimeout(() => {
+      Alert.alert("Sucesso", "Compra realizada com sucesso!");
+      setModalVisible(false);
+      resetarCampos();
+    }, 1500);
   };
 
-  // Cancelar levantamento (e devolver saldo)
-  const cancelLevantamento = (itemId) => {
-    Alert.alert("Cancelar Levantamento", "Deseja cancelar este levantamento?", [
-      { text: "Não", style: "cancel" },
-      {
-        text: "Sim, cancelar",
-        style: "destructive",
-        onPress: () => {
-          setHistory((h) =>
-            h.map((it) => {
-              if (it.id === itemId && it.status === "pending") {
-                setSaldo((s) => s + it.valor);
-                return { ...it, status: "cancelled" };
-              }
-              return it;
-            })
-          );
-          if (activeQrItem && activeQrItem.id === itemId) {
-            setActiveQrItem((p) => (p ? { ...p, status: "cancelled" } : p));
-          }
-        },
-      },
-    ]);
+  const cancelarCompra = () => {
+    setStatus("error");
+    setTimeout(() => {
+      Alert.alert("Cancelado", "A compra foi cancelada.");
+      setModalVisible(false);
+      resetarCampos();
+    }, 1500);
   };
 
-  const openQrModalForItem = (item) => {
-    setActiveQrItem(item);
-    setQrVisible(true);
+  const resetarCampos = () => {
+    setStatus(null);
+    setCodigoManual("");
+    setSenhaCliente("");
+    setValorCompra("");
+    setPesquisa("");
+    setEntidadeSelecionada(null);
+    setDadosCompra(null);
   };
 
-  const copyKzpayToClipboard = (code) => {
-    try {
-      Clipboard.setString(code);
-      Alert.alert("Copiado", "Código KZPay copiado para a área de transferência.");
-    } catch {
-      Alert.alert("Erro", "Não foi possível copiar o código.");
-    }
-  };
-
-  function formatCurrency(v) {
-    let n = typeof v === "number" ? v : Number(String(v).replace(/\D/g, ""));
-    if (isNaN(n)) n = 0;
-    return new Intl.NumberFormat("pt-PT").format(n) + " KZ";
-  }
+  const formatCurrency = (v) =>
+    new Intl.NumberFormat("pt-PT").format(Number(v) || 0) + " KZ";
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Cabeçalho fixo */}
-        <View style={styles.fixedHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={22} color="#8F80FF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Comprar</Text>
-          <View style={{ width: 26 }} />
-        </View>
+    <ScrollView style={styles.safeArea}>
+      {/* Cabeçalho */}
+      <View style={styles.fixedHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Compra</Text>
+        <View style={{ width: 26 }} />
+      </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Saldo */}
-          <LinearGradient colors={["#8F80FF", "#4C44C1", "#1F1C2C"]}  style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>Saldo Disponível</Text>
-            <Text style={styles.balanceValue}>{formatCurrency(saldo)}</Text>
-            <Text style={styles.balanceSub}>Atualizado agora</Text>
+      {/* Alternar modo */}
+      <View style={styles.modeSwitch}>
+        <TouchableOpacity
+          onPress={() => setModo("qr")}
+          style={[styles.modeBtn, modo === "qr" && styles.activeMode]}
+        >
+          <Ionicons name="qr-code-outline" size={18} color="#fff" />
+          <Text style={styles.modeText}>QR / Todos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setModo("manual")}
+          style={[styles.modeBtn, modo === "manual" && styles.activeMode]}
+        >
+          <Ionicons name="cash-outline" size={18} color="#fff" />
+          <Text style={styles.modeText}>Entidade Manual</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Corpo */}
+      {modo === "qr" ? (
+        <View style={styles.body}>
+          <LinearGradient colors={["#8F80FF", "#4C44C1"]} style={styles.scanCard}>
+            <Ionicons name="qr-code-outline" size={50} color="#fff" />
+            <Text style={styles.scanTitle}>Ler QR Code</Text>
+            <Text style={styles.scanSubtitle}>
+              Aponte a câmara para o QR do fornecedor para comprar.
+            </Text>
           </LinearGradient>
-          
+        </View>
+      ) : (
+        <View style={styles.body}>
+          <Text style={styles.manualLabel}>Compra Manual</Text>
+          <TextInput
+            placeholder="Pesquisar entidade..."
+            placeholderTextColor="#666"
+            style={styles.input}
+            value={pesquisa}
+            onChangeText={setPesquisa}
+          />
 
-          {/* Métodos */}
-          <Text style={styles.sectionTitle}>Escolha o método de compra</Text>
-          <View style={styles.methodRow}>
-            {metodos.map((m) => (
+          <FlatList
+            data={entidadesFiltradas}
+            keyExtractor={(item) => item.id}
+            style={{ maxHeight: 250, marginVertical: 10 }}
+            renderItem={({ item }) => (
               <TouchableOpacity
-                key={m.id}
-                style={[styles.methodButton, metodo === m.id && styles.methodButtonActive]}
-                onPress={() => {
-                  setMetodo(m.id);
-                  setReferencia("");
-                  setTitular(null);
-                }}
+                style={[
+                  styles.entidadeItem,
+                  entidadeSelecionada?.id === item.id && styles.entidadeSelecionada,
+                ]}
+                onPress={() => setEntidadeSelecionada(item)}
               >
-                <Ionicons
-                  name={m.icon}
-                  size={22}
-                  color={metodo === m.id ? "#8F80FF" : "#fff"}
-                />
-                <Text
-                  style={[
-                    styles.methodText,
-                    metodo === m.id && { color: "#8F80FF", fontWeight: "600" },
-                  ]}
-                >
-                  {m.label}
-                </Text>
+                <Text style={{ color: "#4C44C1" }}>{item.nome}</Text>
               </TouchableOpacity>
-            ))}
-          </View>
+            )}
+          />
 
-          {/* Inputs */}
           <View style={styles.inputContainer}>
-            <Ionicons name="cash-outline" size={20} color="#8F80FF" />
+            <Ionicons name="cash-outline" size={20} color="#4C44C1" />
             <TextInput
+              placeholder="Valor (KZ)"
+              placeholderTextColor="#666"
               style={styles.input}
-              placeholder="Valor a levantar (KZ)"
-              placeholderTextColor="#cfcfcf"
               keyboardType="numeric"
-              value={valor}
-              onChangeText={setValor}
+              value={valorCompra}
+              onChangeText={(t) => setValorCompra(t.replace(/[^0-9]/g, ""))}
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name={
-                metodo === "IBAN"
-                  ? "card-outline"
-                  : metodo === "Telefone"
-                  ? "call-outline"
-                  : "wallet-outline"
-              }
-              size={20}
-              color="#8F80FF"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder={
-                metodo === "IBAN"
-                  ? "Digite o IBAN completo"
-                  : metodo === "Telefone"
-                  ? "Digite o telefone"
-                  : "Digite o número da conta"
-              }
-              placeholderTextColor="#cfcfcf"
-              keyboardType={metodo === "Telefone" ? "phone-pad" : "default"}
-              value={referencia}
-              onChangeText={(txt) => {
-                setReferencia(txt);
-                buscarTitular(txt, metodo);
-              }}
-            />
-          </View>
-
-          {/* Mostra nome e país se encontrado */}
-          {titular && (
-            <View style={styles.titularBox}>
-              <Ionicons name="person-circle-outline" size={26} color="#8F80FF" />
-              <View>
-                <Text style={styles.titularNome}>{titular.nome}</Text>
-                <Text style={styles.titularPais}>{titular.pais}</Text>
-              </View>
-            </View>
-          )}
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8F80FF" />
-            <TextInput
-              style={styles.input}
-              placeholder="PIN de segurança"
-              placeholderTextColor="#cfcfcf"
-              secureTextEntry
-              keyboardType="numeric"
-              maxLength={4}
-              value={pin}
-              onChangeText={setPin}
-            />
-          </View>
-
-          {/* Botão Confirmar */}
-          <TouchableOpacity style={styles.button} onPress={handleLevantamento}>
+          <TouchableOpacity style={styles.button} onPress={validarCompra}>
             <LinearGradient colors={["#8F80FF", "#4C44C1"]} style={styles.buttonGradient}>
-              <Ionicons name="wallet-outline" size={18} color="#fff" />
-              <Text style={styles.buttonText}>Confirmar compras</Text>
+              <Ionicons name="checkmark-outline" size={18} color="#fff" />
+              <Text style={styles.buttonText}>Validar Compra</Text>
             </LinearGradient>
           </TouchableOpacity>
+        </View>
+      )}
 
-          {/* Histórico */}
-          <View style={{ marginTop: 30 }}>
-            <Text style={styles.historyTitle}>Histórico de Compras</Text>
-
-            {history.length === 0 && (
-              <Text style={styles.emptyText}>Nenhuma compra ainda.</Text>
+      {/* Modal de confirmação */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            {status ? (
+              <View style={styles.centerContent}>
+                {status === "success" && (
+                  <Ionicons name="checkmark-circle" size={100} color="#00D26A" />
+                )}
+                {status === "error" && (
+                  <Ionicons name="close-circle" size={100} color="#FF5C63" />
+                )}
+              </View>
+            ) : (
+              <>
+                {dadosCompra && (
+                  <>
+                    <Text style={styles.modalTitle}>Confirmar Compra</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Cliente:</Text>
+                      <Text style={styles.detailValue}>{dadosCompra.cliente}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Valor:</Text>
+                      <Text style={styles.detailValue}>
+                        {formatCurrency(dadosCompra.valor)}
+                      </Text>
+                    </View>
+                  </>
+                )}
+                <View style={styles.senhaBox}>
+                  <Text style={styles.etapaTitle}>Confirme com a sua senha</Text>
+                  <TextInput
+                    secureTextEntry
+                    placeholder="Senha do cliente"
+                    placeholderTextColor="#888"
+                    style={styles.inputSenha}
+                    keyboardType="numeric"
+                    value={senhaCliente}
+                    onChangeText={(t) => setSenhaCliente(t.replace(/[^0-9]/g, ""))}
+                  />
+                  <View style={{ flexDirection: "row", marginTop: 10 }}>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, { backgroundColor: "#00C46B", flex: 1 }]}
+                      onPress={finalizarCompra}
+                    >
+                      <Ionicons name="checkmark" color="#fff" size={18} />
+                      <Text style={styles.modalBtnText}>Confirmar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, { backgroundColor: "#FF5C63", flex: 1 }]}
+                      onPress={cancelarCompra}
+                    >
+                      <Ionicons name="close" color="#fff" size={18} />
+                      <Text style={styles.modalBtnText}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
             )}
-
-            {history.map((h) => (
-              <View key={h.id} style={styles.historyCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.historyText}>{h.valorStr}</Text>
-                  <Text style={styles.historySub}>
-                    {h.metodo} • {new Date(h.createdAt).toLocaleString()}
-                  </Text>
-                </View>
-
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text
-                    style={[
-                      styles.statusText,
-                      h.status === "pending"
-                        ? { color: "#FFD700" }
-                        : h.status === "confirmed"
-                        ? { color: "#00D26A" }
-                        : { color: "#FF5C63" },
-                    ]}
-                  >
-                    {h.status === "pending"
-                      ? "Pendente"
-                      : h.status === "confirmed"
-                      ? "Confirmado"
-                      : "Cancelado"}
-                  </Text>
-
-                  <View style={{ flexDirection: "row", marginTop: 8 }}>
-                    <TouchableOpacity
-                      onPress={() => openQrModalForItem(h)}
-                      style={styles.smallButton}
-                    >
-                      <Ionicons name="qr-code-outline" size={18} color="#fff" />
-                    </TouchableOpacity>
-
-                    {h.status === "pending" && (
-                      <TouchableOpacity
-                        onPress={() => cancelLevantamento(h.id)}
-                        style={[styles.smallButton, { marginLeft: 8, backgroundColor: "#2a1a24" }]}
-                      >
-                        <Ionicons name="close-outline" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </View>
-            ))}
           </View>
-        </ScrollView>
-
-        {/* Modal QR Code */}
-        <Modal visible={qrVisible} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={styles.modalTitle}>Apresentar no Caixa</Text>
-                <TouchableOpacity onPress={() => setQrVisible(false)} style={{ padding: 6 }}>
-                  <Ionicons name="close" size={22} color="#999" />
-                </TouchableOpacity>
-              </View>
-
-              {activeQrItem ? (
-                <View style={{ alignItems: "center", marginTop: 10 }}>
-                  <View style={styles.qrBox}>
-                    <QRCode value={activeQrItem.kzpayCode} size={170} />
-                  </View>
-                  <Text style={styles.kzpayCode}>{activeQrItem.kzpayCode}</Text>
-                  <Text style={styles.kzpayHint}>
-                    Entregue este QR ou código ao caixa para confirmar a compra
-                  </Text>
-
-                  <View style={{ flexDirection: "row", marginTop: 12 }}>
-                    <TouchableOpacity
-                      onPress={() => copyKzpayToClipboard(activeQrItem.kzpayCode)}
-                      style={[styles.modalButton, { marginRight: 8 }]}
-                    >
-                      <Ionicons name="copy-outline" size={16} color="#fff" />
-                      <Text style={styles.modalButtonText}>Copiar Código</Text>
-                    </TouchableOpacity>
-
-                    {activeQrItem.status === "pending" && (
-                      <TouchableOpacity
-                        onPress={() => confirmAtCashier(activeQrItem.id)}
-                        style={[styles.modalButton, { backgroundColor: "#00C46B" }]}
-                      >
-                        <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
-                        <Text style={styles.modalButtonText}>Confirmar no Caixa</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ) : (
-                <Text>Nenhum detalhe disponível</Text>
-              )}
-            </View>
-          </View>
-        </Modal>
-      </View>
-    </SafeAreaView>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 }
 
-// --- ESTILOS ---
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#051937" },
-  container: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: "#fff" },
   fixedHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -417,153 +258,104 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 56,
     paddingBottom: 10,
-    backgroundColor: "#021024",
-    position: "absolute",
-    top: 0,
-    width: "100%",
-    zIndex: 10,
+    backgroundColor: "#8F80FF",
     borderBottomWidth: 1,
-    borderBottomColor: "#07213a",
+    borderBottomColor: "#7A6FE8",
   },
-  backButton: { backgroundColor: "#06243B", padding: 8, borderRadius: 10 },
-  headerTitle: { color: "#8F80FF", fontSize: 18, fontWeight: "700" },
-  scrollContent: { paddingTop: 120, paddingHorizontal: 18, paddingBottom: 40 },
-  balanceCard: { borderRadius: 20, padding: 25, marginBottom: 25 },
-  balanceLabel: { color: "#fff", opacity: 0.8, fontSize: 14 },
-  balanceValue: { color: "#fff", fontWeight: "bold", fontSize:24, marginTop: 6 },
-  balanceSub: { color: "#fff", opacity: 0.7, fontSize: 13, marginTop: 4 },
-  
-  sectionTitle: { color: "#fff", fontSize: 15, fontWeight: "600", marginBottom: 12 },
-  methodRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14 },
-  methodButton: {
-    backgroundColor: "#06243B",
-    flex: 1,
-    marginHorizontal: 6,
-    paddingVertical: 12,
+  backButton: {  padding: 8, borderRadius: 10 },
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  modeSwitch: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#E8E8FF",
+    paddingVertical: 10,
+    marginHorizontal: 16,
     borderRadius: 12,
-    alignItems: "center",
+    marginTop: 12,
   },
-  methodButtonActive: { borderColor: "#8F80FF", borderWidth: 2 },
-  methodText: { color: "#fff", marginTop: 6 },
+  modeBtn: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10 },
+  activeMode: { borderBottomWidth: 3, borderBottomColor: "#4C44C1" },
+  modeText: { color: "#4C44C1", fontWeight: "600" },
+  body: { padding: 20 },
+  scanCard: {
+    borderRadius: 18,
+    padding: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 30,
+    backgroundColor: "#4C44C1",
+  },
+  scanTitle: { color: "#fff", fontWeight: "700", fontSize: 18, marginTop: 10 },
+  scanSubtitle: { color: "#ddd", textAlign: "center", marginTop: 6, fontSize: 13 },
   inputContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#06243B",
+    backgroundColor: "#F0F0FF",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    marginBottom: 12,
-  },
-  input: { flex: 1, color: "#fff", marginLeft: 10, fontSize: 15 },
-  titularBox: {
-    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#0A2A45",
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 14,
+    marginVertical: 6,
   },
-  titularNome: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  titularPais: { color: "#8F80FF", fontSize: 13 },
-  button: { marginTop: 8, borderRadius: 12, overflow: "hidden" },
+  input: { flex: 1, color: "#333", marginLeft: 8 },
+  button: { marginTop: 16, borderRadius: 12, overflow: "hidden" },
   buttonGradient: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-  },
-  buttonText: { color: "#fff", fontWeight: "700", marginLeft: 8 },
-    historyTitle: { 
-    color: "#8F80FF", 
-    fontSize: 16, 
-    fontWeight: "700", 
-    marginBottom: 12 
-  },
-  emptyText: { 
-    color:  "#fff", 
-    fontSize: 14, 
-    textAlign: "center", 
-    marginTop: 6 
-  },
-  historyCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#06243B",
+    paddingVertical: 12,
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
   },
-  historyText: { 
-    color: "#fff", 
-    fontSize: 15, 
-    fontWeight: "600" 
-  },
-  historySub: { 
-    color: "#8F80FF", 
-    fontSize: 12, 
-    marginTop: 3 
-  },
-  statusText: { 
-    fontWeight: "600", 
-    fontSize: 13 
-  },
-  smallButton: {
-    backgroundColor: "#0B3C5D",
-    padding: 6,
-    borderRadius: 8,
-    marginLeft: 4,
-  },
+  buttonText: { color: "#fff", marginLeft: 8, fontWeight: "700" },
+  manualLabel: { color: "#4C44C1", fontSize: 16, marginBottom: 10, fontWeight: "600" },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
   },
-  modalContent: {
-    backgroundColor: "#031D34",
-    borderRadius: 16,
-    width: "100%",
-    padding: 20,
-    alignItems: "center",
-  },
-  modalTitle: {
-    color: "#8F80FF",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  qrBox: {
+  modalCard: {
     backgroundColor: "#fff",
-    padding: 14,
+    width: "100%",
     borderRadius: 16,
-    marginTop: 10,
+    padding: 20,
   },
-  kzpayCode: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
-    marginTop: 10,
-  },
-  kzpayHint: {
-    color: "#8F80FF",
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: 4,
-  },
-  modalButton: {
-    backgroundColor: "#8F80FF",
+  modalTitle: { color: "#4C44C1", fontSize: 18, fontWeight: "700", marginBottom: 12 },
+  detailRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    justifyContent: "space-between",
+    marginBottom: 6,
   },
-  modalButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
-    marginLeft: 6,
+  detailLabel: { color: "#4C44C1", fontSize: 14 },
+  detailValue: { color: "#333", fontSize: 14, fontWeight: "600" },
+  modalBtn: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginHorizontal: 5,
+  },
+  modalBtnText: { color: "#fff", fontWeight: "700", marginLeft: 6 },
+  centerContent: { alignItems: "center", justifyContent: "center", padding: 30 },
+  senhaBox: { marginTop: 20 },
+  etapaTitle: { color: "#4C44C1", fontWeight: "600", marginBottom: 8 },
+  inputSenha: {
+    backgroundColor: "#F0F0FF",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    color: "#333",
+  },
+  entidadeItem: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginVertical: 4,
+  },
+  entidadeSelecionada: {
+    backgroundColor: "#4C44C1",
+    borderColor: "#4C44C1",
   },
 });

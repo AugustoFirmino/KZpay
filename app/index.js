@@ -38,15 +38,11 @@ export default function HomeScreen() {
   const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
   const arrowAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
-  const [balance, setBalance] = useState(450000000);
+  const [balance, setBalance] = useState(0);
 
   const toggleMenu = () => {
     const toValue = menuVisible ? -drawerWidth : 0;
-    Animated.timing(slideAnim, {
-      toValue,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(slideAnim, { toValue, duration: 300, useNativeDriver: true }).start();
     setMenuVisible(!menuVisible);
   };
 
@@ -58,9 +54,7 @@ export default function HomeScreen() {
           Animated.timing(arrowAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
         ])
       ).start();
-    } else {
-      arrowAnim.stopAnimation();
-    }
+    } else arrowAnim.stopAnimation();
   }, [menuVisible]);
 
   const handleLogout = () => {
@@ -79,32 +73,25 @@ export default function HomeScreen() {
 
   const menuItems = [
     { icon: "home-outline", label: "Início", route: "/" },
-    { icon: "card-outline", label: "Gestão de Contas", route: "/contas" },
-    { icon: "stats-chart-outline", label: "Atividades", route: "/actividades" },
+    { icon: "card-outline", label: "Gestão de Cartão", route: "cliente/gestao_cartao" },
+    { icon: "stats-chart-outline", label: "Atividades", route: "/cliente/actividades" },
     { icon: "settings-outline", label: "Configurações", route: "/configuracoes" },
     { icon: "information-circle-outline", label: "Sobre o KZPay", route: "/sobrekzpay" },
-    { icon: "log-out-outline", label: "Sair", route: "logout" },
+    { icon: "log-out-outline", label: "Sair", route: "/login" },
   ];
 
+  // Removemos Adiantamento e Crédito e centralizamos 4 ações por linha
   const actions = [
     { icon: "send", label: "Transferir", route: "/cliente/transferir" },
     { icon: "qr-code", label: "Pagar", route: "/cliente/pagar" },
     { icon: "cart", label: "Comprar", route: "/cliente/comprar" },
     { icon: "wallet", label: "Levantar", route: "/cliente/levantar" },
-    { icon: "cash", label: "Adiantamento", route: "/cliente/adiantamento" },
-    { icon: "card", label: "Crédito", route: "/cliente/credito" },
   ];
 
-
   const formatBalance = (value) => {
-    
-  
- 
     let n = typeof value === "number" ? value : Number(String(value).replace(/\D/g, ""));
     if (isNaN(n)) n = 0;
     return new Intl.NumberFormat("pt-PT").format(n) + " KZ";
-  
-
   };
 
   const getBalanceFontSize = (text) => {
@@ -126,12 +113,9 @@ export default function HomeScreen() {
       {menuVisible && (
         <View style={styles.menuOverlay}>
           <Animated.View
-            style={[
-              styles.drawer,
-              { width: drawerWidth, transform: [{ translateX: slideAnim }] },
-            ]}
+            style={[styles.drawer, { width: drawerWidth, transform: [{ translateX: slideAnim }] }]}
           >
-            <LinearGradient colors={["#15141F", "#0B0A10"]} style={styles.drawerContent}>
+            <LinearGradient colors={["#8d8ab1ff", "#0B0A10"]} style={styles.drawerContent}>
               <View style={styles.drawerHeader}>
                 <TouchableOpacity onPress={toggleMenu} style={styles.closeButton}>
                   <Ionicons name="close-outline" size={30} color="#fff" />
@@ -143,7 +127,6 @@ export default function HomeScreen() {
                 <Text style={styles.drawerUsername}>Augusto Firmino</Text>
                 <Text style={styles.drawerSubtitle}>Conta pessoal</Text>
               </View>
-
               <View style={styles.drawerMenu}>
                 {menuItems.map((item, i) => (
                   <TouchableOpacity
@@ -164,7 +147,6 @@ export default function HomeScreen() {
             </LinearGradient>
           </Animated.View>
 
-          {/* FUNDO ESCURO */}
           <TouchableWithoutFeedback onPress={toggleMenu}>
             <View style={styles.overlayDark}>
               <Animated.View
@@ -174,10 +156,7 @@ export default function HomeScreen() {
                     opacity: arrowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
                     transform: [
                       {
-                        translateX: arrowAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, -10],
-                        }),
+                        translateX: arrowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }),
                       },
                     ],
                   },
@@ -195,7 +174,7 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-            <Ionicons name="menu-outline" size={30} color="#fff" />
+            <Ionicons name="menu-outline" size={30} color="#0B0A10" />
           </TouchableOpacity>
 
           <View style={styles.userInfo}>
@@ -210,19 +189,17 @@ export default function HomeScreen() {
           </View>
 
           <TouchableOpacity style={styles.notificationButton}>
-            <Ionicons name="notifications-outline" size={26} color="#fff" />
+            <Ionicons name="notifications-outline" size={26} color="#0B0A10" />
           </TouchableOpacity>
         </View>
 
         <LinearGradient colors={["#8F80FF", "#4C44C1", "#1F1C2C"]} style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Saldo disponível</Text>
-          <Text style={[styles.balanceValue, { fontSize: balanceFontSize }]}>
-            {formattedBalance}
-          </Text>
+          <Text style={[styles.balanceValue, { fontSize: balanceFontSize }]}>{formattedBalance}</Text>
           <Text style={styles.balanceSub}>Atualizado há 2 horas</Text>
         </LinearGradient>
 
-        {/* AÇÕES COM NAVEGAÇÃO */}
+        {/* AÇÕES 4 COLUNAS */}
         <View style={styles.actionsGrid}>
           {actions.map((action, index) => (
             <TouchableOpacity
@@ -270,40 +247,56 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#0D0B14" },
-  container: { flex: 1, backgroundColor: "#0D0B14", paddingHorizontal: 20, paddingTop: 50 },
-  menuOverlay: { position: "absolute", top: 0, left: 0, height, width: "100%", flexDirection: "row", zIndex: 100 },
-  drawer: { height: "100%" },
-  drawerContent: { flex: 1, paddingTop: 60, paddingHorizontal: 25 },
-  overlayDark: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", alignItems: "center" },
+  safeArea: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#fff", paddingHorizontal: 20, paddingTop: 50 },
+  
+  menuOverlay: { position: "absolute", top: 0, left: 0, height:"120%", width: "100%", flexDirection: "row", zIndex: 100 },
+  drawer: { height: "120%" },
+  drawerContent: { flex: 1, paddingTop: 60, paddingHorizontal: 25, backgroundColor: "#f7f7f7" },
+  overlayDark: { flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "center", alignItems: "center" },
   arrowHint: { alignItems: "center" },
-  arrowText: { color: "#fff", fontSize: 13, marginTop: 6, opacity: 0.8 },
+  arrowText: { color: "#111", fontSize: 13, marginTop: 6, opacity: 0.8 },
   closeButton: { position: "absolute", top: 15, right: 15 },
   drawerHeader: { alignItems: "center", marginBottom: 30 },
-  drawerAvatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 10, borderWidth: 2, borderColor: "#8F80FF" },
+  drawerAvatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 10, borderWidth: 2, borderColor: "#ffffffff" },
   drawerUsername: { color: "#fff", fontSize: 20, fontWeight: "bold" },
-  drawerSubtitle: { color: "#bbb", fontSize: 14 },
+  drawerSubtitle: { color: "#0B0A10", fontSize: 14 },
   drawerMenu: { marginTop: 20 },
-  drawerItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomColor: "#222", borderBottomWidth: 1 },
+  drawerItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomColor: "#ddd", borderBottomWidth: 1 },
   drawerItemText: { color: "#fff", fontSize: 16, marginLeft: 16, fontWeight: "500" },
+
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 25 },
   menuButton: { marginRight: 8 },
   userInfo: { flexDirection: "row", alignItems: "center" },
   avatar: { width: 45, height: 45, borderRadius: 22, marginRight: 12, borderWidth: 2, borderColor: "#8F80FF" },
-  username: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  userSubtitle: { color: "#bbb", fontSize: 13, marginTop: 2 },
-  notificationButton: { backgroundColor: "#1E2230", padding: 10, borderRadius: 12 },
-  balanceCard: { borderRadius: 20, padding: 25, marginBottom: 25 },
-  balanceLabel: { color: "#fff", opacity: 0.8, fontSize: 14 },
-  balanceValue: { color: "#fff", fontWeight: "bold", marginTop: 6 },
-  balanceSub: { color: "#fff", opacity: 0.7, fontSize: 13, marginTop: 4 },
+  username: { color: "#111", fontSize: 18, fontWeight: "700" },
+  userSubtitle: { color: "#666", fontSize: 13, marginTop: 2 },
+  notificationButton: { backgroundColor: "#f0f0f0", padding: 10, borderRadius: 12 },
+
+  balanceCard: { backgroundColor: "#f5f5ff", borderRadius: 20, padding: 25, marginBottom: 25, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  balanceLabel: { color: "#555", fontSize: 14 },
+  balanceValue: { color: "#111", fontWeight: "bold", marginTop: 6 },
+  balanceSub: { color: "#888", fontSize: 13, marginTop: 4 },
+
   actionsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 25 },
-  actionButton: { backgroundColor: "#1A1830", width: "30%", marginVertical: 8, paddingVertical: 15, borderRadius: 16, alignItems: "center" },
-  actionText: { color: "#fff", marginTop: 6, fontSize: 12, fontWeight: "600" },
-  historyTitle: { color: "#fff", fontSize: 18, fontWeight: "600", marginBottom: 12 },
-  transactionItem: { backgroundColor: "#171626", flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 15, borderRadius: 12, marginBottom: 10 },
+  actionButton: {
+    backgroundColor: "#f0f0f0",
+    width: "22%",
+    marginVertical: 8,
+    paddingVertical: 15,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  actionText: { color: "#111", marginTop: 6, fontSize: 12, fontWeight: "600", textAlign: "center" },
+
+  historyTitle: { color: "#111", fontSize: 18, fontWeight: "600", marginBottom: 12 },
+  transactionItem: { backgroundColor: "#fff", flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 15, borderRadius: 12, marginBottom: 10, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   transactionLeft: { flexDirection: "row", alignItems: "center" },
-  iconContainer: { backgroundColor: "#22213A", width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  transactionTitle: { color: "#ddd", fontSize: 15 },
+  iconContainer: { backgroundColor: "#eaeaea", width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", marginRight: 12 },
+  transactionTitle: { color: "#111", fontSize: 15 },
   transactionAmount: { fontWeight: "bold", fontSize: 15 },
 });

@@ -3,16 +3,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
-  Clipboard,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Clipboard,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
@@ -176,7 +176,7 @@ export default function Levantamento() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={22} color="#8F80FF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Crédito</Text>
+          <Text style={styles.headerTitle}>Levantar</Text>
           <View style={{ width: 26 }} />
         </View>
 
@@ -190,7 +190,7 @@ export default function Levantamento() {
           
 
           {/* Métodos */}
-          <Text style={styles.sectionTitle}>Escolha o método de Crédito</Text>
+          <Text style={styles.sectionTitle}>Escolha o método de levantamento</Text>
           <View style={styles.methodRow}>
             {metodos.map((m) => (
               <TouchableOpacity
@@ -298,10 +298,10 @@ export default function Levantamento() {
 
           {/* Histórico */}
           <View style={{ marginTop: 30 }}>
-            <Text style={styles.historyTitle}>Histórico de Créditos</Text>
+            <Text style={styles.historyTitle}>Histórico de Levantamentos</Text>
 
             {history.length === 0 && (
-              <Text style={styles.emptyText}>Nenhum crédito ainda.</Text>
+              <Text style={styles.emptyText}>Nenhum levantamento ainda.</Text>
             )}
 
             {history.map((h) => (
@@ -372,7 +372,7 @@ export default function Levantamento() {
                   </View>
                   <Text style={styles.kzpayCode}>{activeQrItem.kzpayCode}</Text>
                   <Text style={styles.kzpayHint}>
-                    Entregue este QR ou código ao caixa para confirmar o crédito
+                    Entregue este QR ou código ao caixa para confirmar o levantamento
                   </Text>
 
                   <View style={{ flexDirection: "row", marginTop: 12 }}>
@@ -428,9 +428,9 @@ const styles = StyleSheet.create({
   backButton: { backgroundColor: "#06243B", padding: 8, borderRadius: 10 },
   headerTitle: { color: "#8F80FF", fontSize: 18, fontWeight: "700" },
   scrollContent: { paddingTop: 120, paddingHorizontal: 18, paddingBottom: 40 },
-  balanceCard: { borderRadius: 20, padding: 25, marginBottom: 25 },
+ balanceCard: { borderRadius: 20, padding: 25, marginBottom: 25 },
   balanceLabel: { color: "#fff", opacity: 0.8, fontSize: 14 },
-  balanceValue: { color: "#fff", fontWeight: "bold", fontSize:24, marginTop: 6 },
+  balanceValue: { color: "#fff", fontWeight: "bold", marginTop: 6 },
   balanceSub: { color: "#fff", opacity: 0.7, fontSize: 13, marginTop: 4 },
   
   sectionTitle: { color: "#fff", fontSize: 15, fontWeight: "600", marginBottom: 12 },
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     fontWeight: "700", 
     marginBottom: 12 
   },
-  emptyText: { 
+   emptyText: { 
     color:  "#fff", 
     fontSize: 14, 
     textAlign: "center", 

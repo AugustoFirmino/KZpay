@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,7 +18,7 @@ export default function PagamentoPage() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
 
-  const [modo, setModo] = useState("qr"); // 'qr' ou 'manual'
+  const [modo, setModo] = useState("qr");
   const [scanning, setScanning] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
   const [dadosPagamento, setDadosPagamento] = useState(null);
@@ -28,24 +29,18 @@ export default function PagamentoPage() {
   const [valorManual, setValorManual] = useState("");
   const [clienteNBT, setClienteNBT] = useState(null);
 
-  // --- MOCK de clientes no sistema ---
   const mockClientes = [
     { id: "1001", nome: "Maria António", nbt: "1234 5678 9876" },
     { id: "1002", nome: "Augusto Firmino Correia", nbt: "9876 5432 1122" },
     { id: "2001", nome: "Carlos Domingos", nbt: "1122 3344 5566" },
   ];
 
-  // Buscar o cliente automaticamente pelo ID digitado no campo "entidade"
   useEffect(() => {
-    if (!entidade) {
-      setClienteNBT(null);
-      return;
-    }
+    if (!entidade) return setClienteNBT(null);
     const cliente = mockClientes.find((c) => c.id === entidade);
     setClienteNBT(cliente || null);
   }, [entidade]);
 
-  // --- Função para QR ---
   const handleBarcodeScanned = ({ data }) => {
     setScanning(false);
     processarCodigo(data);
@@ -68,7 +63,6 @@ export default function PagamentoPage() {
     setModalVisible(true);
   };
 
-  // --- Função para pagamento manual ---
   const validarManual = () => {
     if (!entidade || !valorManual)
       return Alert.alert("Erro", "Preencha todos os campos.");
@@ -88,7 +82,6 @@ export default function PagamentoPage() {
     setModalVisible(true);
   };
 
-  // --- Confirmar Pagamento ---
   const finalizarPagamento = () => {
     if (!senhaCliente) return Alert.alert("Erro", "Digite a senha para confirmar.");
 
@@ -122,19 +115,18 @@ export default function PagamentoPage() {
   const formatCurrency = (v) =>
     new Intl.NumberFormat("pt-PT").format(Number(v) || 0) + " KZ";
 
-  // --- Verificação da permissão da câmara ---
   if (!permission) {
     return (
-      <View style={styles.center}>
-        <Text style={{ color: "#fff" }}>A carregar permissões...</Text>
+      <View style={[styles.center, { backgroundColor: "#fff" }]}>
+        <Text style={{ color: "#4C44C1" }}>A carregar permissões...</Text>
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.center}>
-        <Text style={{ color: "#fff", marginBottom: 20 }}>
+      <View style={[styles.center, { backgroundColor: "#fff" }]}>
+        <Text style={{ color: "#4C44C1", marginBottom: 20 }}>
           A câmara precisa de permissão para funcionar.
         </Text>
         <TouchableOpacity onPress={requestPermission} style={styles.permissionButton}>
@@ -145,13 +137,12 @@ export default function PagamentoPage() {
     );
   }
 
-  // --- Layout Principal ---
   return (
-    <View style={styles.safeArea}>
+    <ScrollView style={styles.safeArea}>
       {/* Cabeçalho */}
       <View style={styles.fixedHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color="#8F80FF" />
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Pagamento</Text>
         <View style={{ width: 26 }} />
@@ -164,7 +155,7 @@ export default function PagamentoPage() {
           style={[styles.modeBtn, modo === "qr" && styles.activeMode]}
         >
           <Ionicons name="qr-code-outline" size={18} color="#fff" />
-          <Text style={styles.modeText}>QR / KZPay</Text>
+          <Text style={styles.modeText}>QR / Todos</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setModo("manual")}
@@ -182,17 +173,20 @@ export default function PagamentoPage() {
             <CameraView
               onBarcodeScanned={handleBarcodeScanned}
               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-              style={{ flex: 1 }}
+              style={{ height: 400, borderRadius: 16 }}
             />
+            <View style={styles.overlay}>
+              <View style={styles.qrFrame} />
+            </View>
             <TouchableOpacity style={styles.closeScan} onPress={() => setScanning(false)}>
               <Ionicons name="close" color="#fff" size={22} />
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.body}>
-            <LinearGradient colors={["#8F80FF", "#4C44C1", "#1F1C2C"]} style={styles.scanCard}>
+            <LinearGradient colors={["#8F80FF", "#4C44C1"]} style={styles.scanCard}>
               <Ionicons name="qr-code-outline" size={50} color="#fff" />
-              <Text style={styles.scanTitle}>Ler QR Code KZPay</Text>
+              <Text style={styles.scanTitle}>Ler QR Code</Text>
               <Text style={styles.scanSubtitle}>
                 Aponte a câmara para o QR do fornecedor para pagar.
               </Text>
@@ -203,10 +197,10 @@ export default function PagamentoPage() {
             </LinearGradient>
 
             <View style={styles.inputContainer}>
-              <Ionicons name="key-outline" size={20} color="#8F80FF" />
+              <Ionicons name="key-outline" size={20} color="#4C44C1" />
               <TextInput
                 placeholder="Ou insira a referência KZPay"
-                placeholderTextColor="#aaa"
+                placeholderTextColor="#666"
                 style={styles.input}
                 keyboardType="numeric"
                 value={codigoManual}
@@ -225,12 +219,11 @@ export default function PagamentoPage() {
       ) : (
         <View style={styles.body}>
           <Text style={styles.manualLabel}>Pagamento Manual</Text>
-
           <View style={styles.inputContainer}>
-            <Ionicons name="business-outline" size={20} color="#8F80FF" />
+            <Ionicons name="business-outline" size={20} color="#4C44C1" />
             <TextInput
               placeholder="Entidade (ex: 1001)"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#666"
               style={styles.input}
               keyboardType="numeric"
               value={entidade}
@@ -240,16 +233,16 @@ export default function PagamentoPage() {
 
           {clienteNBT && (
             <View style={{ marginBottom: 10, marginLeft: 6 }}>
-              <Text style={{ color: "#8F80FF" }}>Cliente: {clienteNBT.nome}</Text>
-              <Text style={{ color: "#aaa" }}>NBT: {clienteNBT.nbt}</Text>
+              <Text style={{ color: "#4C44C1" }}>Cliente: {clienteNBT.nome}</Text>
+              <Text style={{ color: "#666" }}>NBT: {clienteNBT.nbt}</Text>
             </View>
           )}
 
           <View style={styles.inputContainer}>
-            <Ionicons name="cash-outline" size={20} color="#8F80FF" />
+            <Ionicons name="cash-outline" size={20} color="#4C44C1" />
             <TextInput
               placeholder="Valor (KZ)"
-              placeholderTextColor="#aaa"
+              placeholderTextColor="#666"
               style={styles.input}
               keyboardType="numeric"
               value={valorManual}
@@ -337,12 +330,12 @@ export default function PagamentoPage() {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#051937" },
+  safeArea: { flex: 1, backgroundColor: "#fff" },
   fixedHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -350,21 +343,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 56,
     paddingBottom: 10,
-    backgroundColor: "#021024",
+    backgroundColor: "#8F80FF",
     borderBottomWidth: 1,
-    borderBottomColor: "#07213a",
+    borderBottomColor: "#7A6FE8",
   },
-  backButton: { backgroundColor: "#06243B", padding: 8, borderRadius: 10 },
-  headerTitle: { color: "#8F80FF", fontSize: 18, fontWeight: "700" },
+  backButton: {  padding: 8, borderRadius: 10 },
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "700" },
   modeSwitch: {
     flexDirection: "row",
     justifyContent: "space-around",
-    backgroundColor: "#031D34",
+    backgroundColor: "#E8E8FF",
     paddingVertical: 10,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 12,
   },
   modeBtn: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10 },
-  activeMode: { borderBottomWidth: 3, borderBottomColor: "#8F80FF" },
-  modeText: { color: "#fff", fontWeight: "600" },
+  activeMode: { borderBottomWidth: 3, borderBottomColor: "#4C44C1" },
+  modeText: { color: "#4C44C1", fontWeight: "600" },
   body: { padding: 20 },
   scanCard: {
     borderRadius: 18,
@@ -372,12 +368,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 30,
+    backgroundColor: "#4C44C1",
   },
   scanTitle: { color: "#fff", fontWeight: "700", fontSize: 18, marginTop: 10 },
   scanSubtitle: { color: "#ddd", textAlign: "center", marginTop: 6, fontSize: 13 },
   scanButton: {
     flexDirection: "row",
-    backgroundColor: "#2D2A4A",
+    backgroundColor: "#6B63FF",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
@@ -386,44 +383,45 @@ const styles = StyleSheet.create({
   scanButtonText: { color: "#fff", marginLeft: 6, fontWeight: "600" },
   inputContainer: {
     flexDirection: "row",
-    backgroundColor: "#06243B",
+    backgroundColor: "#F0F0FF",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
     alignItems: "center",
     marginVertical: 6,
   },
-  input: { flex: 1, color: "#fff", marginLeft: 8 },
+  input: { flex: 1, color: "#333", marginLeft: 8 },
   button: { marginTop: 16, borderRadius: 12, overflow: "hidden" },
   buttonGradient: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 12,
+    borderRadius: 12,
   },
   buttonText: { color: "#fff", marginLeft: 8, fontWeight: "700" },
-  manualLabel: { color: "#8F80FF", fontSize: 16, marginBottom: 10, fontWeight: "600" },
+  manualLabel: { color: "#4C44C1", fontSize: 16, marginBottom: 10, fontWeight: "600" },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
   },
   modalCard: {
-    backgroundColor: "#031D34",
+    backgroundColor: "#fff",
     width: "100%",
     borderRadius: 16,
     padding: 20,
   },
-  modalTitle: { color: "#8F80FF", fontSize: 18, fontWeight: "700", marginBottom: 12 },
+  modalTitle: { color: "#4C44C1", fontSize: 18, fontWeight: "700", marginBottom: 12 },
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  detailLabel: { color: "#8F80FF", fontSize: 14 },
-  detailValue: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  detailLabel: { color: "#4C44C1", fontSize: 14 },
+  detailValue: { color: "#333", fontSize: 14, fontWeight: "600" },
   modalBtn: {
     flexDirection: "row",
     justifyContent: "center",
@@ -444,7 +442,6 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
-    backgroundColor: "#051937",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -458,12 +455,25 @@ const styles = StyleSheet.create({
   permissionText: { color: "#fff", marginLeft: 8, fontWeight: "600" },
   centerContent: { alignItems: "center", justifyContent: "center", padding: 30 },
   senhaBox: { marginTop: 20 },
-  etapaTitle: { color: "#8F80FF", fontWeight: "600", marginBottom: 8 },
+  etapaTitle: { color: "#4C44C1", fontWeight: "600", marginBottom: 8 },
   inputSenha: {
-    backgroundColor: "#06243B",
+    backgroundColor: "#F0F0FF",
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 10,
-    color: "#fff",
+    color: "#333",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  qrFrame: {
+    width: 200,
+    height: 200,
+    borderWidth: 3,
+    borderColor: "#4C44C1",
+    borderRadius: 20,
+    backgroundColor: "rgba(76,68,193,0.15)",
   },
 });

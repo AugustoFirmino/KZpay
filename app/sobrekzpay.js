@@ -3,35 +3,22 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    Alert,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 export default function KZPayAboutPage() {
   const router = useRouter();
-  const [modalContatoVisivel, setModalContatoVisivel] = useState(false);
+  
   const [mensagem, setMensagem] = useState("");
   const [enviado, setEnviado] = useState(false);
 
-  const enviarContato = () => {
-    if (!mensagem)
-      return Alert.alert("Erro", "Por favor escreva a sua mensagem.");
-
-    setEnviado(true);
-    setTimeout(() => {
-      Alert.alert("Obrigado", "Recebemos a sua mensagem. Responderemos em breve.");
-      setModalContatoVisivel(false);
-      setMensagem("");
-      setEnviado(false);
-    }, 900);
-  };
 
   const abrirWhatsApp = () => {
     const phone = "+244912345678"; // número real aqui
@@ -46,34 +33,46 @@ export default function KZPayAboutPage() {
       {/* Cabeçalho fixo */}
       <View style={styles.fixedHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color="#8F80FF" />
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Sobre • KZPay</Text>
         <TouchableOpacity
-          onPress={() => setModalContatoVisivel(true)}
+        onPress={abrirWhatsApp}
           style={styles.iconButton}
           accessibilityLabel="Contactar KZPay"
         >
-          <Ionicons name="chatbubbles-outline" size={20} color="#8F80FF" />
+          <Ionicons name="chatbubbles-outline" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
+
       <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
         {/* Hero */}
+
+        
         <LinearGradient colors={["#8F80FF", "#4C44C1"]} style={styles.heroCard}>
+            <View style={styles.logoContainer}>
+                    <Image
+                      source={{
+                        uri: "https://cdn-icons-png.flaticon.com/512/6269/6269947.png",
+                      }}
+                      style={styles.logo}
+                    />
+                 
+          </View>
           <Text style={styles.heroTitle}>KZPay — Pagamentos simples, rápidos e seguros</Text>
           <Text style={styles.heroSubtitle}>
             Revolucionamos a forma de pagar em Angola — para comerciantes, clientes e serviços.
           </Text>
 
           <View style={styles.heroActions}>
-            <TouchableOpacity style={styles.heroBtn} onPress={() => router.push("/pagamento")}>
+            <TouchableOpacity style={styles.heroBtn} onPress={() => router.push("/cliente/pagar")}>
               <Ionicons name="card-outline" size={18} color="#fff" />
               <Text style={styles.heroBtnText}>Fazer Pagamento</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.heroBtnOutline} onPress={() => setModalContatoVisivel(true)}>
-              <Ionicons name="mail-outline" size={18} color="#8F80FF" />
+            <TouchableOpacity style={styles.heroBtnOutline}  onPress={abrirWhatsApp}>
+              <Ionicons name="logo-whatsapp" size={18} color="#8F80FF" />
               <Text style={styles.heroBtnOutlineText}>Contacte-nos</Text>
             </TouchableOpacity>
           </View>
@@ -83,7 +82,7 @@ export default function KZPayAboutPage() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quem somos</Text>
           <Text style={styles.sectionText}>
-            O KZPay é uma plataforma de pagamentos construída em Angola pela empresa de Tecnologia Luxon para facilitar transacções diárias.
+            O KZPay é uma plataforma de pagamentos construída em Angola pela empresa de Tecnologia Luxon Technologies para facilitar transacções diárias.
             Unimos tecnologia, segurança e acessibilidade para permitir que comerciantes e clientes
             façam pagamentos com rapidez e confiança.
           </Text>
@@ -301,49 +300,15 @@ export default function KZPayAboutPage() {
         </View>
       </ScrollView>
 
-      {/* Modal de Contacto */}
-      <Modal visible={modalContatoVisivel} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Contacte a Equipa KZPay</Text>
-
-            <TextInput
-              placeholder="Escreva a sua mensagem..."
-              placeholderTextColor="#999"
-              style={[styles.input, { height: 120, textAlignVertical: "top" }]}
-              multiline
-              numberOfLines={5}
-              value={mensagem}
-              onChangeText={setMensagem}
-            />
-
-            <View style={{ flexDirection: "row", marginTop: 10 }}>
-              <TouchableOpacity
-                onPress={enviarContato}
-                style={[styles.modalBtn, { backgroundColor: "#00C46B", flex: 1 }]}
-                disabled={enviado}
-              >
-                <Ionicons name="send-outline" color="#fff" />
-                <Text style={styles.modalBtnText}>Enviar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setModalContatoVisivel(false)}
-                style={[styles.modalBtn, { backgroundColor: "#FF5C63", flex: 1 }]}
-              >
-                <Ionicons name="close-outline" color="#fff" />
-                <Text style={styles.modalBtnText}>Fechar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+     
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#051937" },
+  safeArea: { flex: 1, backgroundColor: "#fff" },
+  logoContainer: { alignItems: "center", marginBottom: 40 },
+  logo: { width: 90, height: 90, marginBottom: 10 },
   fixedHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -351,13 +316,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 56,
     paddingBottom: 10,
-    backgroundColor: "#021024",
+    backgroundColor: "#8F80FF",
     borderBottomWidth: 1,
-    borderBottomColor: "#07213a",
+    borderBottomColor: "#8F80FF",
   },
-  backButton: { backgroundColor: "#06243B", padding: 8, borderRadius: 10 },
-  iconButton: { backgroundColor: "#06243B", padding: 8, borderRadius: 10 },
-  headerTitle: { color: "#8F80FF", fontSize: 18, fontWeight: "700" },
+  backButton: { backgroundColor: "#8F80FF", padding: 8, borderRadius: 10 },
+  iconButton: { backgroundColor: "#8F80FF", padding: 8, borderRadius: 10 },
+  headerTitle: { color: "#FFF", fontSize: 18, fontWeight: "700" },
 
   heroCard: { margin: 18, borderRadius: 16, padding: 18, elevation: 6 },
   heroTitle: { color: "#fff", fontSize: 20, fontWeight: "800" },
@@ -366,7 +331,7 @@ const styles = StyleSheet.create({
   heroBtn: {
     flexDirection: "row",
     backgroundColor: "#1F1C2C",
-    paddingHorizontal: 12,
+    paddingHorizontal: 5,
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: "center",
@@ -376,7 +341,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderWidth: 1,
     borderColor: "#8F80FF",
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: "center",
